@@ -35,3 +35,10 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Compiled classes ###
+*.class
+
+### Sensitive config ###
+application.yml
+application.yaml
