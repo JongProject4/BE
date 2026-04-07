@@ -1,4 +1,4 @@
-package com.aikids.care.domain.repository;
+package com.aikids.care.domain.healthlog.repository;
 
 import com.aikids.care.domain.healthlog.entity.HealthLog;
 import com.aikids.care.domain.healthlog.entity.HealthLog.LogType;
