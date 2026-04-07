@@ -1,6 +1,7 @@
-package com.aikids.care.domain.healthlog;
+package com.aikids.care.domain.repository;
 
-import com.aikids.care.domain.healthlog.HealthLog.LogType;
+import com.aikids.care.domain.healthlog.entity.HealthLog;
+import com.aikids.care.domain.healthlog.entity.HealthLog.LogType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

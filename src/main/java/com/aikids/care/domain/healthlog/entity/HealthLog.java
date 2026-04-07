@@ -1,4 +1,4 @@
-package com.aikids.care.domain.healthlog;
+package com.aikids.care.domain.healthlog.entity;
 
 import com.aikids.care.domain.child.Child;
 import jakarta.persistence.*;

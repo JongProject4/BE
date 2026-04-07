@@ -1,7 +1,7 @@
 package com.aikids.care.domain.healthlog.dto;
 
-import com.aikids.care.domain.healthlog.HealthLog;
-import com.aikids.care.domain.healthlog.HealthLog.LogType;
+import com.aikids.care.domain.healthlog.entity.HealthLog;
+import com.aikids.care.domain.healthlog.entity.HealthLog.LogType;
 import lombok.Builder;
 import lombok.Getter;
 

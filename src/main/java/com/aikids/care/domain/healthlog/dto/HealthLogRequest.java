@@ -1,6 +1,6 @@
 package com.aikids.care.domain.healthlog.dto;
 
-import com.aikids.care.domain.healthlog.HealthLog.LogType;
+import com.aikids.care.domain.healthlog.entity.HealthLog.LogType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Getter;
