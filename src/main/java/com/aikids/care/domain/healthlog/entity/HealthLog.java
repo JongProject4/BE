@@ -1,6 +1,6 @@
 package com.aikids.care.domain.healthlog.entity;
 
-import com.aikids.care.domain.child.Child;
+import com.aikids.care.domain.child.entity.Child;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
