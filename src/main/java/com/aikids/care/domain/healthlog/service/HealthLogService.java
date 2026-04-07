@@ -43,7 +43,7 @@ public class HealthLogService {
     // 헬스 로그 수동 추가
     @Transactional
     public HealthLogResponse createHealthLog(Long childId, HealthLogRequest request) {
-        Child child = validateChild(childId);
+        Child  child = validateChild(childId);
 
         HealthLog healthLog = HealthLog.builder()
                 .child(child)
