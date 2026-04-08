@@ -13,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,6 +31,21 @@ public class ChildController {
 		try {
 			AuthInfo authInfo = extractAuthInfo(oauth2User);
 			return ResponseEntity.ok(childService.getChildren(authInfo.socialId(), authInfo.socialType()));
+		} catch (IllegalArgumentException ex) {
+			return ResponseEntity.badRequest().build();
+		} catch (EntityNotFoundException ex) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+		}
+	}
+
+	@GetMapping("/{childId}")
+	public ResponseEntity<ChildResponse> getChild(
+			@AuthenticationPrincipal OAuth2User oauth2User,
+			@PathVariable Long childId
+	) {
+		try {
+			AuthInfo authInfo = extractAuthInfo(oauth2User);
+			return ResponseEntity.ok(childService.getChild(authInfo.socialId(), authInfo.socialType(), childId));
 		} catch (IllegalArgumentException ex) {
 			return ResponseEntity.badRequest().build();
 		} catch (EntityNotFoundException ex) {
