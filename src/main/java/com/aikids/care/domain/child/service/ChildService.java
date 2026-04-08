@@ -76,4 +76,25 @@ public class ChildService {
 				.map(ChildResponse::from)
 				.toList();
 	}
+
+	@Transactional(readOnly = true)
+	public ChildResponse getChild(String socialId, SocialType socialType, Long childId) {
+		if (socialId == null || socialId.isBlank()) {
+			throw new IllegalArgumentException("socialId must not be blank");
+		}
+		if (socialType == null) {
+			throw new IllegalArgumentException("socialType must not be null");
+		}
+		if (childId == null) {
+			throw new IllegalArgumentException("childId must not be null");
+		}
+
+		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+
+		Child child = childRepository.findByIdAndUser_Id(childId, user.getId())
+				.orElseThrow(() -> new EntityNotFoundException("Child not found. childId=" + childId));
+
+		return ChildResponse.from(child);
+	}
 }
