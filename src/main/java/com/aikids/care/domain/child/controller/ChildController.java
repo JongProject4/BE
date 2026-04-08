@@ -3,6 +3,7 @@ package com.aikids.care.domain.child.controller;
 import com.aikids.care.domain.child.dto.ChildResponse;
 import com.aikids.care.domain.child.dto.CreateChildRequest;
 import com.aikids.care.domain.child.service.ChildService;
+import com.aikids.care.domain.user.dto.UserActionResponse;
 import com.aikids.care.domain.user.model.SocialType;
 import jakarta.persistence.EntityNotFoundException;
 import java.util.List;
@@ -12,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -66,6 +68,22 @@ public class ChildController {
 			return ResponseEntity.badRequest().build();
 		} catch (EntityNotFoundException ex) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+		}
+	}
+
+	@DeleteMapping("/{childId}")
+	public ResponseEntity<UserActionResponse> deleteChild(
+			@AuthenticationPrincipal OAuth2User oauth2User,
+			@PathVariable Long childId
+	) {
+		try {
+			AuthInfo authInfo = extractAuthInfo(oauth2User);
+			childService.deleteChild(authInfo.socialId(), authInfo.socialType(), childId);
+			return ResponseEntity.ok(UserActionResponse.success("Child profile deleted successfully."));
+		} catch (IllegalArgumentException ex) {
+			return ResponseEntity.badRequest().body(UserActionResponse.fail(ex.getMessage()));
+		} catch (EntityNotFoundException ex) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(UserActionResponse.fail(ex.getMessage()));
 		}
 	}
 
