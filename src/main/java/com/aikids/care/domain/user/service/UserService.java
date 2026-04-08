@@ -92,5 +92,21 @@ public class UserService {
 		user.updateAdditionalInfo(request.phoneNumber(), request.fcmToken());
 		userRepository.save(user);
 	}
+
+	@Transactional
+	public void deleteCurrentUser(String socialId, SocialType socialType) {
+		if (socialId == null || socialId.isBlank()) {
+			throw new IllegalArgumentException("socialId must not be blank");
+		}
+		if (socialType == null) {
+			throw new IllegalArgumentException("socialType must not be null");
+		}
+
+		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+
+		// 현재 인증된 사용자의 계정을 삭제한다.
+		userRepository.delete(user);
+	}
 }
 

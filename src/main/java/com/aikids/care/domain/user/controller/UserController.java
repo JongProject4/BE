@@ -13,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -58,6 +59,19 @@ public class UserController {
 			AuthInfo authInfo = extractAuthInfo(oauth2User);
 			userService.patchCurrentUserInfo(authInfo.socialId(), authInfo.socialType(), request);
 			return ResponseEntity.ok(UserActionResponse.success("User profile patched successfully."));
+		} catch (IllegalArgumentException ex) {
+			return ResponseEntity.badRequest().body(UserActionResponse.fail(ex.getMessage()));
+		} catch (EntityNotFoundException ex) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(UserActionResponse.fail(ex.getMessage()));
+		}
+	}
+
+	@DeleteMapping("/me")
+	public ResponseEntity<UserActionResponse> deleteMe(@AuthenticationPrincipal OAuth2User oauth2User) {
+		try {
+			AuthInfo authInfo = extractAuthInfo(oauth2User);
+			userService.deleteCurrentUser(authInfo.socialId(), authInfo.socialType());
+			return ResponseEntity.ok(UserActionResponse.success("User account deleted successfully."));
 		} catch (IllegalArgumentException ex) {
 			return ResponseEntity.badRequest().body(UserActionResponse.fail(ex.getMessage()));
 		} catch (EntityNotFoundException ex) {
