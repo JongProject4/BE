@@ -97,4 +97,26 @@ public class ChildService {
 
 		return ChildResponse.from(child);
 	}
+
+	@Transactional
+	public void deleteChild(String socialId, SocialType socialType, Long childId) {
+		if (socialId == null || socialId.isBlank()) {
+			throw new IllegalArgumentException("socialId must not be blank");
+		}
+		if (socialType == null) {
+			throw new IllegalArgumentException("socialType must not be null");
+		}
+		if (childId == null) {
+			throw new IllegalArgumentException("childId must not be null");
+		}
+
+		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+
+		Child child = childRepository.findByIdAndUser_Id(childId, user.getId())
+				.orElseThrow(() -> new EntityNotFoundException("Child not found. childId=" + childId));
+
+		// 현재 인증 사용자가 소유한 child만 삭제한다.
+		childRepository.delete(child);
+	}
 }
