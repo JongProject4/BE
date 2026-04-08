@@ -2,6 +2,7 @@ package com.aikids.care.domain.child.service;
 
 import com.aikids.care.domain.child.dto.ChildResponse;
 import com.aikids.care.domain.child.dto.CreateChildRequest;
+import com.aikids.care.domain.child.dto.PatchChildRequest;
 import com.aikids.care.domain.child.entity.Child;
 import com.aikids.care.domain.child.repository.ChildRepository;
 import com.aikids.care.domain.user.model.SocialType;
@@ -118,5 +119,40 @@ public class ChildService {
 
 		// 현재 인증 사용자가 소유한 child만 삭제한다.
 		childRepository.delete(child);
+	}
+
+	@Transactional
+	public ChildResponse patchChild(String socialId, SocialType socialType, Long childId, PatchChildRequest request) {
+		if (socialId == null || socialId.isBlank()) {
+			throw new IllegalArgumentException("socialId must not be blank");
+		}
+		if (socialType == null) {
+			throw new IllegalArgumentException("socialType must not be null");
+		}
+		if (childId == null) {
+			throw new IllegalArgumentException("childId must not be null");
+		}
+		if (request == null || request.isEmpty()) {
+			throw new IllegalArgumentException("At least one field must be provided");
+		}
+
+		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+
+		Child child = childRepository.findByIdAndUser_Id(childId, user.getId())
+				.orElseThrow(() -> new EntityNotFoundException("Child not found. childId=" + childId));
+
+		// PATCH는 전달된 필드만 부분 수정한다.
+		child.patchProfile(
+				request.name(),
+				request.birthdate(),
+				request.gender(),
+				request.height(),
+				request.weight(),
+				request.medicalHistory(),
+				request.allergies()
+		);
+
+		return ChildResponse.from(childRepository.save(child));
 	}
 }
