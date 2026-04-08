@@ -68,4 +68,40 @@ public class Child {
     public enum Gender {
         MALE, FEMALE
     }
+
+    public void patchProfile(
+            String name,
+            LocalDateTime birthdate,
+            Gender gender,
+            Float height,
+            Float weight,
+            String medicalHistory,
+            String allergies
+    ) {
+        if (name != null) {
+            String trimmed = name.trim();
+            if (trimmed.isBlank()) {
+                throw new IllegalArgumentException("name must not be blank");
+            }
+            this.name = trimmed;
+        }
+        if (birthdate != null) {
+            this.birthdate = birthdate;
+        }
+        if (gender != null) {
+            this.gender = gender;
+        }
+        if (height != null) {
+            this.height = height;
+        }
+        if (weight != null) {
+            this.weight = weight;
+        }
+        if (medicalHistory != null) {
+            this.medicalHistory = medicalHistory.trim().isBlank() ? null : medicalHistory.trim();
+        }
+        if (allergies != null) {
+            this.allergies = allergies.trim().isBlank() ? null : allergies.trim();
+        }
+    }
 }
