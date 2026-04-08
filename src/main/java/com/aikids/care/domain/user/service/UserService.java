@@ -1,11 +1,11 @@
 package com.aikids.care.domain.user.service;
 
 import com.aikids.care.domain.user.dto.CurrentUserResponse;
+import com.aikids.care.domain.user.dto.UpdateUserInfoRequest;
 import com.aikids.care.domain.user.model.SocialType;
 import com.aikids.care.domain.user.model.User;
 import com.aikids.care.domain.user.model.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
-import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -50,6 +50,25 @@ public class UserService {
 				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
 
 		return CurrentUserResponse.from(user);
+	}
+
+	@Transactional
+	public void updateCurrentUserInfo(String socialId, SocialType socialType, UpdateUserInfoRequest request) {
+		if (socialId == null || socialId.isBlank()) {
+			throw new IllegalArgumentException("socialId must not be blank");
+		}
+		if (socialType == null) {
+			throw new IllegalArgumentException("socialType must not be null");
+		}
+		if (request == null || request.isEmpty()) {
+			throw new IllegalArgumentException("At least one field (phoneNumber, fcmToken) must be provided");
+		}
+
+		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+
+		user.updateAdditionalInfo(request.phoneNumber(), request.fcmToken());
+		userRepository.save(user);
 	}
 }
 

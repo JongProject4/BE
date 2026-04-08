@@ -56,4 +56,15 @@ public class User {
 		}
 		this.name = name;
 	}
+
+	public void updateAdditionalInfo(String phoneNumber, String fcmToken) {
+		if (phoneNumber != null) {
+			String trimmedPhoneNumber = phoneNumber.trim();
+			this.phoneNumber = trimmedPhoneNumber.isBlank() ? null : trimmedPhoneNumber;
+		}
+		if (fcmToken != null) {
+			String trimmedFcmToken = fcmToken.trim();
+			this.fcmToken = trimmedFcmToken.isBlank() ? null : trimmedFcmToken;
+		}
+	}
 }
