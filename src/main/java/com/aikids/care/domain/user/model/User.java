@@ -67,4 +67,12 @@ public class User {
 			this.fcmToken = trimmedFcmToken.isBlank() ? null : trimmedFcmToken;
 		}
 	}
+
+	public void updateFcmToken(String fcmToken) {
+		if (fcmToken == null) {
+			return;
+		}
+		String trimmedFcmToken = fcmToken.trim();
+		this.fcmToken = trimmedFcmToken.isBlank() ? null : trimmedFcmToken;
+	}
 }

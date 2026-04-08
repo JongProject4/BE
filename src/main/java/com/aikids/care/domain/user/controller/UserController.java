@@ -1,6 +1,7 @@
 package com.aikids.care.domain.user.controller;
 
 import com.aikids.care.domain.user.dto.CurrentUserResponse;
+import com.aikids.care.domain.user.dto.FcmTokenRequest;
 import com.aikids.care.domain.user.dto.PatchUserInfoRequest;
 import com.aikids.care.domain.user.dto.UpdateUserInfoRequest;
 import com.aikids.care.domain.user.dto.UserActionResponse;
@@ -76,6 +77,22 @@ public class UserController {
 			return ResponseEntity.badRequest().body(UserActionResponse.fail(ex.getMessage()));
 		} catch (EntityNotFoundException ex) {
 			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(UserActionResponse.fail(ex.getMessage()));
+		}
+	}
+
+	@PatchMapping("/me/fcm-token")
+	public ResponseEntity<Void> updateFcmToken(
+			@AuthenticationPrincipal OAuth2User oauth2User,
+			@RequestBody FcmTokenRequest request
+	) {
+		try {
+			AuthInfo authInfo = extractAuthInfo(oauth2User);
+			userService.updateCurrentUserFcmToken(authInfo.socialId(), authInfo.socialType(), request.fcmToken());
+			return ResponseEntity.noContent().build();
+		} catch (IllegalArgumentException ex) {
+			return ResponseEntity.badRequest().build();
+		} catch (EntityNotFoundException ex) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
 		}
 	}
 

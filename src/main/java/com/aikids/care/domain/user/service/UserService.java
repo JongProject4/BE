@@ -108,5 +108,30 @@ public class UserService {
 		// 현재 인증된 사용자의 계정을 삭제한다.
 		userRepository.delete(user);
 	}
+
+	@Transactional
+	public void updateCurrentUserFcmToken(String socialId, SocialType socialType, String fcmToken) {
+		if (socialId == null || socialId.isBlank()) {
+			throw new IllegalArgumentException("socialId must not be blank");
+		}
+		if (socialType == null) {
+			throw new IllegalArgumentException("socialType must not be null");
+		}
+		if (fcmToken == null || fcmToken.trim().isBlank()) {
+			throw new IllegalArgumentException("fcmToken must not be blank");
+		}
+
+		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+
+		String normalizedToken = fcmToken.trim();
+		// 앱 시작 시 수시 호출되는 API이므로 동일 토큰이면 불필요한 쓰기를 피한다.
+		if (normalizedToken.equals(user.getFcmToken())) {
+			return;
+		}
+
+		user.updateFcmToken(normalizedToken);
+		userRepository.save(user);
+	}
 }
 
