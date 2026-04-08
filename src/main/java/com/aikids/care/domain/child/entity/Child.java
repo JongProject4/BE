@@ -1,6 +1,18 @@
 package com.aikids.care.domain.child.entity;
 
-import jakarta.persistence.*;
+import com.aikids.care.domain.user.model.User;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -16,14 +28,15 @@ public class Child {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id", nullable = false)
-    private Long userId;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
 
     @Column(nullable = false)
     private String name;
 
     @Column(nullable = false)
-    private String birthdate;
+    private LocalDateTime birthdate;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -40,9 +53,9 @@ public class Child {
     private String allergies;
 
     @Builder
-    public Child(Long userId, String name, String birthdate, Gender gender,
+    public Child(User user, String name, LocalDateTime birthdate, Gender gender,
                  Float height, Float weight, String medicalHistory, String allergies) {
-        this.userId = userId;
+        this.user = user;
         this.name = name;
         this.birthdate = birthdate;
         this.gender = gender;
@@ -54,5 +67,41 @@ public class Child {
 
     public enum Gender {
         MALE, FEMALE
+    }
+
+    public void patchProfile(
+            String name,
+            LocalDateTime birthdate,
+            Gender gender,
+            Float height,
+            Float weight,
+            String medicalHistory,
+            String allergies
+    ) {
+        if (name != null) {
+            String trimmed = name.trim();
+            if (trimmed.isBlank()) {
+                throw new IllegalArgumentException("name must not be blank");
+            }
+            this.name = trimmed;
+        }
+        if (birthdate != null) {
+            this.birthdate = birthdate;
+        }
+        if (gender != null) {
+            this.gender = gender;
+        }
+        if (height != null) {
+            this.height = height;
+        }
+        if (weight != null) {
+            this.weight = weight;
+        }
+        if (medicalHistory != null) {
+            this.medicalHistory = medicalHistory.trim().isBlank() ? null : medicalHistory.trim();
+        }
+        if (allergies != null) {
+            this.allergies = allergies.trim().isBlank() ? null : allergies.trim();
+        }
     }
 }

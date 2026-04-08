@@ -1,5 +1,6 @@
 package com.aikids.care.domain.user.model;
 
+import com.aikids.care.domain.child.entity.Child;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -7,8 +8,11 @@ import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.util.ArrayList;
+import java.util.List;
 import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
@@ -42,6 +46,10 @@ public class User {
 
 	@Column(name = "fcm_token")
 	private String fcmToken;
+
+	// User(부모) 1명은 Child(아이 프로필) 여러 명을 가질 수 있다.
+	@OneToMany(mappedBy = "user")
+	private List<Child> children = new ArrayList<>();
 
 	@Builder
 	public User(String socialId, SocialType socialType, String name) {
