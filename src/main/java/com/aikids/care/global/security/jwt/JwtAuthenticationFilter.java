@@ -6,16 +6,11 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
-import org.springframework.security.oauth2.core.user.DefaultOAuth2User;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -30,6 +25,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
 	public JwtAuthenticationFilter(JwtTokenProvider jwtTokenProvider) {
 		this.jwtTokenProvider = jwtTokenProvider;
+	}
+
+	@Override
+	protected boolean shouldNotFilter(HttpServletRequest request) {
+		String path = request.getServletPath();
+		// OAuth2 로그인 시작/콜백 경로는 JWT 검사 대상에서 제외한다.
+		return path.startsWith("/login")
+				|| path.startsWith("/oauth2")
+				|| path.startsWith("/error");
 	}
 
 	@Override
@@ -57,31 +61,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 		}
 
 		try {
-			var claims = jwtTokenProvider.parseAndValidate(rawToken);
-			String socialId = claims.get("socialId", String.class);
-			String socialType = claims.get("socialType", String.class);
-			String name = claims.get("name", String.class);
-			if (!StringUtils.hasText(socialId) || !StringUtils.hasText(socialType)) {
+			// 1) 토큰이 유효하지 않으면 즉시 401로 종료한다.
+			if (!jwtTokenProvider.validateToken(rawToken)) {
 				response.sendError(HttpStatus.UNAUTHORIZED.value());
 				return;
 			}
-
-			Map<String, Object> attributes = new HashMap<>();
-			attributes.put("socialId", socialId);
-			attributes.put("socialType", socialType);
-			attributes.put("name", name == null ? "" : name);
-
-			OAuth2User oauth2User = new DefaultOAuth2User(
-					List.of(new SimpleGrantedAuthority("ROLE_USER")),
-					attributes,
-					"socialId");
-
-			var authentication = new OAuth2AuthenticationToken(
-					oauth2User,
-					oauth2User.getAuthorities(),
-					"jwt");
-			authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-
+			// 2) 유효한 토큰이면 Authentication을 구성해 SecurityContext에 저장한다.
+			Authentication authentication = jwtTokenProvider.getAuthentication(rawToken);
+			if (authentication instanceof AbstractAuthenticationToken tokenAuthentication) {
+				tokenAuthentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+			}
 			SecurityContextHolder.getContext().setAuthentication(authentication);
 		} catch (JwtException | IllegalArgumentException ex) {
 			response.sendError(HttpStatus.UNAUTHORIZED.value());
