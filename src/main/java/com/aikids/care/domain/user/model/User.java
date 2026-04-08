@@ -57,9 +57,3 @@ public class User {
 		this.name = name;
 	}
 }
-
-// UserRepository.java
-public interface UserRepository extends JpaRepository<User, Long> {
-    // 이미 가입된 소셜 유저인지 확인하기 위해 socialId로 찾기
-    Optional<User> findBySocialId(String socialId);
-}
