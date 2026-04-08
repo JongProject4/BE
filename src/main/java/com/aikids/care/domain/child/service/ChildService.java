@@ -8,6 +8,7 @@ import com.aikids.care.domain.user.model.SocialType;
 import com.aikids.care.domain.user.model.User;
 import com.aikids.care.domain.user.model.UserRepository;
 import jakarta.persistence.EntityNotFoundException;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,5 +57,23 @@ public class ChildService {
 				.build();
 
 		return ChildResponse.from(childRepository.save(child));
+	}
+
+	@Transactional(readOnly = true)
+	public List<ChildResponse> getChildren(String socialId, SocialType socialType) {
+		if (socialId == null || socialId.isBlank()) {
+			throw new IllegalArgumentException("socialId must not be blank");
+		}
+		if (socialType == null) {
+			throw new IllegalArgumentException("socialType must not be null");
+		}
+
+		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+
+		return childRepository.findByUser_Id(user.getId())
+				.stream()
+				.map(ChildResponse::from)
+				.toList();
 	}
 }
