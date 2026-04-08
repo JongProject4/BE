@@ -5,12 +5,14 @@ import com.aikids.care.domain.child.dto.CreateChildRequest;
 import com.aikids.care.domain.child.service.ChildService;
 import com.aikids.care.domain.user.model.SocialType;
 import jakarta.persistence.EntityNotFoundException;
+import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -22,6 +24,18 @@ import org.springframework.web.bind.annotation.RestController;
 public class ChildController {
 
 	private final ChildService childService;
+
+	@GetMapping
+	public ResponseEntity<List<ChildResponse>> getChildren(@AuthenticationPrincipal OAuth2User oauth2User) {
+		try {
+			AuthInfo authInfo = extractAuthInfo(oauth2User);
+			return ResponseEntity.ok(childService.getChildren(authInfo.socialId(), authInfo.socialType()));
+		} catch (IllegalArgumentException ex) {
+			return ResponseEntity.badRequest().build();
+		} catch (EntityNotFoundException ex) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+		}
+	}
 
 	@PostMapping
 	public ResponseEntity<ChildResponse> createChild(
