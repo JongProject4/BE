@@ -2,6 +2,7 @@ package com.aikids.care.domain.child.controller;
 
 import com.aikids.care.domain.child.dto.ChildResponse;
 import com.aikids.care.domain.child.dto.CreateChildRequest;
+import com.aikids.care.domain.child.dto.PatchChildRequest;
 import com.aikids.care.domain.child.service.ChildService;
 import com.aikids.care.domain.user.dto.UserActionResponse;
 import com.aikids.care.domain.user.model.SocialType;
@@ -15,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -64,6 +66,23 @@ public class ChildController {
 			AuthInfo authInfo = extractAuthInfo(oauth2User);
 			ChildResponse response = childService.createChild(authInfo.socialId(), authInfo.socialType(), request);
 			return ResponseEntity.status(HttpStatus.CREATED).body(response);
+		} catch (IllegalArgumentException ex) {
+			return ResponseEntity.badRequest().build();
+		} catch (EntityNotFoundException ex) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+		}
+	}
+
+	@PatchMapping("/{childId}")
+	public ResponseEntity<ChildResponse> patchChild(
+			@AuthenticationPrincipal OAuth2User oauth2User,
+			@PathVariable Long childId,
+			@RequestBody PatchChildRequest request
+	) {
+		try {
+			AuthInfo authInfo = extractAuthInfo(oauth2User);
+			ChildResponse response = childService.patchChild(authInfo.socialId(), authInfo.socialType(), childId, request);
+			return ResponseEntity.ok(response);
 		} catch (IllegalArgumentException ex) {
 			return ResponseEntity.badRequest().build();
 		} catch (EntityNotFoundException ex) {
