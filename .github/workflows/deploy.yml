@@ -41,7 +41,7 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           port: ${{ secrets.EC2_PORT }}
           script: |
-            pkill -f 'java -jar' || true
+            bash /home/ubuntu/app/deploy.sh
             sleep 3
             nohup java -jar -Xmx512m -Xms256m \
               /home/ubuntu/app/build/libs/*.jar \
