@@ -42,11 +42,3 @@ jobs:
           port: ${{ secrets.EC2_PORT }}
           script: |
             bash /home/ubuntu/app/deploy.sh
-            sleep 3
-            nohup java -jar -Xmx512m -Xms256m \
-              /home/ubuntu/app/build/libs/*.jar \
-              --spring.config.location=/home/ubuntu/app/application.yml \
-              > /home/ubuntu/app/app.log 2>&1 &
-            disown
-            sleep 5
-            echo "Deploy complete"
