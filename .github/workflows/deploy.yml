@@ -42,7 +42,10 @@ jobs:
           port: ${{ secrets.EC2_PORT }}
           script: |
             pkill -f 'java -jar' || true
+            sleep 3
             nohup java -jar -Xmx512m -Xms256m \
               /home/ubuntu/app/build/libs/*.jar \
               --spring.config.location=/home/ubuntu/app/application.yml \
               > /home/ubuntu/app/app.log 2>&1 &
+            sleep 5
+            echo "Deploy complete"
