@@ -1,5 +1,7 @@
 package com.aikids.care.domain.chat.service;
 
+import com.aikids.care.domain.chat.dto.ChatCreateRequest;
+import com.aikids.care.domain.chat.dto.ChatDetailResponse;
 import com.aikids.care.domain.chat.dto.ChatMessageRequest;
 import com.aikids.care.domain.chat.model.Chat;
 import com.aikids.care.domain.chat.model.ChatDetail;
@@ -11,23 +13,33 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Service // "이 클래스는 주방장(핵심 기능)입니다!" 라는 명찰
-@RequiredArgsConstructor // 창고 관리인, 통신병 등 필요한 직원을 알아서 불러옵니다.
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+@RequiredArgsConstructor
 public class ChatService {
 
     private final ChatRepository chatRepository;
     private final ChatDetailRepository chatDetailRepository;
     private final GeminiApiClient geminiApiClient;
 
-    // 표의 2번째 줄 API: 특정 상담 세션에 메시지를 보내고 AI 답변을 받는 기능
-    @Transactional // "이 과정 중 하나라도 에러가 나면 싹 다 취소해!" (데이터 보호용 안전장치)
-    public String sendMessage(Long chatId, ChatMessageRequest request) {
+    // 새로운 상담 세션 생성 API
+    @Transactional
+    public Long createChat(ChatCreateRequest request) {
+        Chat newChat = Chat.builder()
+                .childId(request.getChildId())
+                .build();
+        Chat savedChat = chatRepository.save(newChat);
+        return savedChat.getId();
+    }
 
-        // 1. 냉장고에서 번호표(chatId)에 맞는 바인더(Chat) 꺼내오기
+    // 메시지 전송 및 AI 답변 받기 API
+    @Transactional
+    public String sendMessage(Long chatId, ChatMessageRequest request) {
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new IllegalArgumentException("해당 상담 세션을 찾을 수 없습니다."));
 
-        // 2. 부모님이 보낸 메시지를 낱장 종이로 만들어서 냉장고에 저장하기 (Role: USER)
         ChatDetail userMessage = ChatDetail.builder()
                 .chat(chat)
                 .role(Role.USER)
@@ -35,10 +47,8 @@ public class ChatService {
                 .build();
         chatDetailRepository.save(userMessage);
 
-        // 3. 외부 통신병에게 부모님 메시지 넘겨주고 제미나이의 답변 받아오기
         String aiResponseText = geminiApiClient.askToGemini(request.getContent());
 
-        // 4. 제미나이가 준 답변도 낱장 종이로 만들어서 냉장고에 저장하기 (Role: AI)
         ChatDetail aiMessage = ChatDetail.builder()
                 .chat(chat)
                 .role(Role.AI)
@@ -46,7 +56,30 @@ public class ChatService {
                 .build();
         chatDetailRepository.save(aiMessage);
 
-        // 5. 최종적으로 완성된 제미나이의 답변 텍스트를 반환
         return aiResponseText;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Long> getChatRoomList(Long childId) {
+        return chatRepository.findByChildIdOrderByCreatedAtDesc(childId)
+                .stream()
+                .map(Chat::getId)
+                .collect(Collectors.toList());
+    }
+
+    //특정 상담 방(ChatId) 안의 '모든 대화 내역(ChatDetail)' 가져오기
+    @Transactional(readOnly = true)
+    public List<ChatDetailResponse> getChatHistory(Long chatId) {
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("해당 상담 세션을 찾을 수 없습니다."));
+
+        return chatDetailRepository.findByChatOrderByCreatedAtAsc(chat)
+                .stream()
+                .map(detail -> new ChatDetailResponse(
+                        detail.getRole(),
+                        detail.getContent(),
+                        detail.getCreatedAt()
+                ))
+                .collect(Collectors.toList());
     }
 }

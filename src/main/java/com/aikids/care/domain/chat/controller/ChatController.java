@@ -1,28 +1,51 @@
 package com.aikids.care.domain.chat.controller;
 
+import com.aikids.care.domain.chat.dto.ChatCreateRequest;
+import com.aikids.care.domain.chat.dto.ChatCreateResponse;
+import com.aikids.care.domain.chat.dto.ChatDetailResponse;
 import com.aikids.care.domain.chat.dto.ChatMessageRequest;
 import com.aikids.care.domain.chat.service.ChatService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-@CrossOrigin(origins = "*") // 모든 곳에서 오는 요청 허용(임시 프론트 테스트용)
-@RestController // API 요청 받는 컨트롤러
-@RequestMapping("/api/chats") // "/api/chats"만 받음
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/chat")
 @RequiredArgsConstructor
 public class ChatController {
 
     private final ChatService chatService;
 
-    //API 부모가 메시지 전송 -> DB 저장 -> AI 답변 반환
-    @PostMapping("/{chat_id}/messages")
-    public String sendMessage(
-            @PathVariable("chat_id") Long chatId,
-            @RequestBody ChatMessageRequest request) { // @RequestBody: JSON을 DTO로 변환해서 받음
+    //새로운 상담 방 만들기 API
+    @PostMapping("/rooms")
+    public ResponseEntity<ChatCreateResponse> createChat(@RequestBody ChatCreateRequest request) {
+        Long chatId = chatService.createChat(request);
 
-        // 아이디랑 요청을 넘김
-        String aiResponse = chatService.sendMessage(chatId, request);
+        return ResponseEntity.ok(new ChatCreateResponse(chatId));
+    }
 
-        //AI 답변 텍스트
-        return aiResponse;
+    // 특정 방에 메시지 보내고 AI 답변 받기 API
+    @PostMapping("/rooms/{chatId}/messages")
+    public ResponseEntity<String> sendMessage(
+            @PathVariable Long chatId,
+            @RequestBody ChatMessageRequest request) {
+        String aiAnswer = chatService.sendMessage(chatId, request);
+        return ResponseEntity.ok(aiAnswer);
+    }
+
+    // 특정 아이(childId)의 상담 방 목록 가져오기 API
+    @GetMapping("/rooms/list/{childId}")
+    public ResponseEntity<List<Long>> getChatRoomList(@PathVariable Long childId) {
+        List<Long> roomIds = chatService.getChatRoomList(childId);
+        return ResponseEntity.ok(roomIds);
+    }
+
+    // 특정 방(chatId)의 과거 대화 내역(ChatDetail) 가져오기 API
+    @GetMapping("/rooms/{chatId}/messages")
+    public ResponseEntity<List<ChatDetailResponse>> getChatHistory(@PathVariable Long chatId) {
+        List<ChatDetailResponse> history = chatService.getChatHistory(chatId);
+        return ResponseEntity.ok(history);
     }
 }
