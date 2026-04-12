@@ -1,4 +1,4 @@
-package com.aikids.care.domain.medicatonalarm.entity;
+package com.aikids.care.domain.medicationalarm.entity;
 
 import com.aikids.care.domain.child.entity.Child;
 import jakarta.persistence.*;
