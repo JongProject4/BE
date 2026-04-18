@@ -10,6 +10,7 @@ import com.aikids.care.domain.chat.repository.ChatDetailRepository;
 import com.aikids.care.domain.chat.repository.ChatRepository;
 import com.aikids.care.infra.gemini.GeminiApiClient;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,7 +23,7 @@ public class ChatService {
 
     private final ChatRepository chatRepository;
     private final ChatDetailRepository chatDetailRepository;
-    private final GeminiApiClient geminiApiClient;
+    private final ObjectProvider<GeminiApiClient> geminiApiClientProvider;
 
     // 새로운 상담 세션 생성 API
     @Transactional
@@ -47,7 +48,11 @@ public class ChatService {
                 .build();
         chatDetailRepository.save(userMessage);
 
-        String aiResponseText = geminiApiClient.askToGemini(request.getContent());
+        GeminiApiClient gemini = geminiApiClientProvider.getIfAvailable();
+        String aiResponseText = gemini != null
+                ? gemini.askToGemini(request.getContent())
+                : "[AI 비활성화] spring.ai.model.chat 가 none 입니다. "
+                        + "Gemini를 쓰려면 gemini 프로필과 GEMINI_API_KEY를 설정하세요.";
 
         ChatDetail aiMessage = ChatDetail.builder()
                 .chat(chat)
