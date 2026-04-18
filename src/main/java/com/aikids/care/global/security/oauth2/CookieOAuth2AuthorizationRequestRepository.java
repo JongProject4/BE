@@ -58,7 +58,7 @@ public class CookieOAuth2AuthorizationRequestRepository implements Authorization
 			cookie.setPath("/");
 			cookie.setHttpOnly(true);
 			cookie.setMaxAge(COOKIE_MAX_AGE_SECONDS);
-			cookie.setSecure(request.isSecure());
+			cookie.setSecure(true);
 			response.addCookie(cookie);
 		} catch (Exception ex) {
 			throw new IllegalStateException("Failed to persist OAuth2AuthorizationRequest", ex);
@@ -77,7 +77,7 @@ public class CookieOAuth2AuthorizationRequestRepository implements Authorization
 		cookie.setPath("/");
 		cookie.setHttpOnly(true);
 		cookie.setMaxAge(0);
-		cookie.setSecure(request.isSecure());
+		cookie.setSecure(true);
 		response.addCookie(cookie);
 	}
 }
