@@ -16,6 +16,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.SecurityFilterChain;
 
+import java.util.List;
+
 @Configuration
 @Slf4j
 @RequiredArgsConstructor
@@ -29,7 +31,19 @@ public class SecurityConfig {
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 		http
+				.cors(cors -> cors.configurationSource(request -> {
+					var config = new org.springframework.web.cors.CorsConfiguration();
+					config.setAllowedOrigins(List.of(
+							"https://pediatric-ai-beige.vercel.app",
+							"http://localhost:3000"
+					));
+					config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
+					config.setAllowedHeaders(List.of("*"));
+					config.setAllowCredentials(true);
+					return config;
+				}))
 				.csrf(csrf -> csrf.disable())
+				// ... 나머지 기존 코드 그대로
 				// API는 세션 없이 JWT로 인증하기 위해 무상태 정책을 사용한다.
 				.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 				// /api/** 에서는 로그인 페이지 redirect 대신 401을 반환한다.
