@@ -1,9 +1,15 @@
 package com.aikids.care.infra.gemini;
 
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
+/**
+ * Spring AI가 {@link ChatModel} 빈을 만들 때만 등록된다.
+ * {@code spring.ai.model.chat: none} 인 경우 빈이 없으므로 앱 기동은 계속된다.
+ */
 @Component
+@ConditionalOnBean(ChatModel.class)
 public class GeminiApiClient {
 
     private final ChatModel chatModel;

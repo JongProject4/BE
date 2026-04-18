@@ -18,6 +18,10 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 
+/**
+ * OAuth2(구글 등) 로그인 성공 후 서버 발급 JWT를 쿼리 파라미터로 붙여 프론트엔드로 리다이렉트한다.
+ * 대상 URL은 {@code app.oauth2.frontend-redirect-uri} (application.yml, 환경변수로 덮어쓰기)에서만 읽는다.
+ */
 @Component
 @RequiredArgsConstructor
 public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccessHandler {
@@ -49,7 +53,8 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 
 		String redirectBase = oauth2FrontendProperties.frontendRedirectUri();
 		if (!StringUtils.hasText(redirectBase)) {
-			redirectBase = "http://localhost:8080/login-success";
+			response.sendError(HttpStatus.INTERNAL_SERVER_ERROR.value(), "app.oauth2.frontend-redirect-uri is not configured");
+			return;
 		}
 
 		String targetUrl = UriComponentsBuilder.fromUriString(redirectBase)
