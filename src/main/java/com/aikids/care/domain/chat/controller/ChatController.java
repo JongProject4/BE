@@ -28,11 +28,11 @@ public class ChatController {
 
     // 특정 방에 메시지 보내고 AI 답변 받기 API
     @PostMapping("/rooms/{chatId}/messages")
-    public ResponseEntity<String> sendMessage(
+    public ResponseEntity<java.util.Map<String, String>> sendMessage(
             @PathVariable Long chatId,
             @RequestBody ChatMessageRequest request) {
         String aiAnswer = chatService.sendMessage(chatId, request);
-        return ResponseEntity.ok(aiAnswer);
+        return ResponseEntity.ok(java.util.Map.of("answer", aiAnswer));
     }
 
     // 특정 아이(childId)의 상담 방 목록 가져오기 API
