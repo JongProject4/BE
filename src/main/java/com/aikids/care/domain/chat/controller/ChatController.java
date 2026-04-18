@@ -18,7 +18,14 @@ public class ChatController {
 
     private final ChatService chatService;
 
-    //새로운 상담 방 만들기 API
+    // Direct POST /api/chat endpoint for fallback
+    @PostMapping("")
+    public ResponseEntity<java.util.Map<String, Object>> handleDirectChat(
+            @RequestBody java.util.Map<String, Object> body) {
+        return ResponseEntity.ok(java.util.Map.of("message", "Working ✅", "received", body));
+    }
+
+    // 새로운 상담 방 만들기 API
     @PostMapping("/rooms")
     public ResponseEntity<ChatCreateResponse> createChat(@RequestBody ChatCreateRequest request) {
         Long chatId = chatService.createChat(request);
