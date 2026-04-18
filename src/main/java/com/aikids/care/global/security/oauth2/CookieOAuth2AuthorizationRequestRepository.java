@@ -1,6 +1,5 @@
 package com.aikids.care.global.security.oauth2;
 
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Base64;
@@ -11,6 +10,7 @@ import org.springframework.util.SerializationUtils;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.util.WebUtils;
+import jakarta.servlet.http.Cookie;
 
 @Slf4j
 @Component
@@ -54,11 +54,6 @@ public class CookieOAuth2AuthorizationRequestRepository implements Authorization
 				throw new IllegalStateException("Serialized OAuth2AuthorizationRequest is empty");
 			}
 			String encoded = Base64.getUrlEncoder().withoutPadding().encodeToString(serialized);
-			Cookie cookie = new Cookie(COOKIE_NAME, encoded);
-			cookie.setPath("/");
-			cookie.setHttpOnly(true);
-			cookie.setMaxAge(COOKIE_MAX_AGE_SECONDS);
-			cookie.setSecure(true);
 			String cookieHeader = COOKIE_NAME + "=" + encoded
 					+ "; Path=/"
 					+ "; Max-Age=" + COOKIE_MAX_AGE_SECONDS
@@ -79,11 +74,6 @@ public class CookieOAuth2AuthorizationRequestRepository implements Authorization
 	}
 
 	private void deleteCookie(HttpServletRequest request, HttpServletResponse response) {
-		Cookie cookie = new Cookie(COOKIE_NAME, null);
-		cookie.setPath("/");
-		cookie.setHttpOnly(true);
-		cookie.setMaxAge(0);
-		cookie.setSecure(true);
 		String cookieHeader = COOKIE_NAME + "=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=None";
 		response.addHeader("Set-Cookie", cookieHeader);
 	}
