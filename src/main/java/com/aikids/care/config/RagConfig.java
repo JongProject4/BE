@@ -71,36 +71,12 @@ public class RagConfig {
     }
 
     @Bean
-    public ChromaApi chromaApi() {
-        return new ChromaApi(
-                "http://localhost:8000",
-                RestClient.builder(),
-                new ObjectMapper()
-        );
-    }
-
-    // @Lazy 어노테이션을 붙여서 서버 시작 시점의 강제 초기화 에러를 회피합니다.
-    @Bean
-    @Lazy
     public ChromaVectorStore vectorStore(EmbeddingModel embeddingModel, ChromaApi chromaApi) {
-        String collection = "medical-guidelines";
-
-        // Spring AI 객체가 생성되기 전, 가장 원시적이고 확실한 v1 API로 컬렉션 강제 생성을 찔러봅니다.
-        try {
-            RestTemplate rt = new RestTemplate();
-            String url = "http://localhost:8000/api/v1/collections";
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            String body = "{\"name\":\"" + collection + "\"}";
-            rt.postForObject(url, new HttpEntity<>(body, headers), String.class);
-            System.out.println(">>> Chroma DB: 컬렉션 검증/생성 시도 완료");
-        } catch (Exception createEx) {
-            // 컬렉션이 이미 존재해서 발생하는 400, 409 등의 에러는 안전하게 무시합니다.
-        }
-
         return ChromaVectorStore.builder(chromaApi, embeddingModel)
-                .collectionName(collection)
-                .initializeSchema(false)
+                .tenantName("default_tenant")
+                .databaseName("default_database")
+                .collectionName("medical-guidelines")
+                .initializeSchema(true)
                 .build();
     }
 }
