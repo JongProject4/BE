@@ -3,12 +3,12 @@ package com.aikids.care.domain.chat.service;
 import com.aikids.care.domain.chat.dto.ChatCreateRequest;
 import com.aikids.care.domain.chat.dto.ChatDetailResponse;
 import com.aikids.care.domain.chat.dto.ChatMessageRequest;
+import com.aikids.care.domain.chat.dto.ChatUpdateRequest;
 import com.aikids.care.domain.chat.model.Chat;
 import com.aikids.care.domain.chat.model.ChatDetail;
 import com.aikids.care.domain.chat.model.Role;
-import com.aikids.care.domain.chat.repository.ChatDetailRepository;
 import com.aikids.care.domain.chat.repository.ChatRepository;
-import com.aikids.care.infra.gemini.GeminiApiClient;
+import com.aikids.care.domain.chat.repository.ChatDetailRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,67 +17,82 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class ChatService {
 
     private final ChatRepository chatRepository;
     private final ChatDetailRepository chatDetailRepository;
-    private final GeminiApiClient geminiApiClient;
+    private final GeminiService geminiService;
 
-    // 새로운 상담 세션 생성 API
+    // 1. 새로운 상담 세션(빈 방) 생성
     @Transactional
     public Long createChat(ChatCreateRequest request) {
-        Chat newChat = Chat.builder()
+        Chat chat = Chat.builder()
                 .childId(request.getChildId())
                 .build();
-        Chat savedChat = chatRepository.save(newChat);
-        return savedChat.getId();
+        return chatRepository.save(chat).getId();
     }
 
-    // 메시지 전송 및 AI 답변 받기 API
+    // 2. 메시지 전송 및 AI 답변 받기
     @Transactional
     public String sendMessage(Long chatId, ChatMessageRequest request) {
+        // 1) 채팅방 찾기
         Chat chat = chatRepository.findById(chatId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 상담 세션을 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
 
-        ChatDetail userMessage = ChatDetail.builder()
+        // 2) 부모가 보낸 메시지(사진 포함)를 DB에 저장
+        ChatDetail userMsg = ChatDetail.builder()
                 .chat(chat)
                 .role(Role.USER)
                 .content(request.getContent())
+                .imageUrl(request.getImageUrl())
                 .build();
-        chatDetailRepository.save(userMessage);
+        chatDetailRepository.save(userMsg);
 
-        String aiResponseText = geminiApiClient.askToGemini(request.getContent());
+        // 3) AI에게 물어보고 답변 받기
+        String aiContent = geminiService.askQuestion(request.getContent(), request.getImageUrl());
 
-        ChatDetail aiMessage = ChatDetail.builder()
+        // 4) AI의 답변을 DB에 저장
+        ChatDetail aiMsg = ChatDetail.builder()
                 .chat(chat)
                 .role(Role.AI)
-                .content(aiResponseText)
+                .content(aiContent)
                 .build();
-        chatDetailRepository.save(aiMessage);
+        chatDetailRepository.save(aiMsg);
 
-        return aiResponseText;
+        return aiContent;
     }
 
-    @Transactional(readOnly = true)
-    public List<Long> getChatRoomList(Long childId) {
-        return chatRepository.findByChildIdOrderByCreatedAtDesc(childId)
-                .stream()
-                .map(Chat::getId)
-                .collect(Collectors.toList());
-    }
-
-    //특정 상담 방(ChatId) 안의 '모든 대화 내역(ChatDetail)' 가져오기
-    @Transactional(readOnly = true)
-    public List<ChatDetailResponse> getChatHistory(Long chatId) {
+    // 3. AI 분석 결과 업데이트 (PATCH API)
+    @Transactional
+    public void updateChatResult(Long chatId, ChatUpdateRequest request) {
         Chat chat = chatRepository.findById(chatId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 상담 세션을 찾을 수 없습니다."));
+                .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
 
-        return chatDetailRepository.findByChatOrderByCreatedAtAsc(chat)
-                .stream()
+        chat.updateResult(request.getCategory(), request.getRiskLevel());
+    }
+
+    // 4. 채팅방 삭제
+    @Transactional
+    public void deleteChat(Long chatId) {
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
+        chatRepository.delete(chat);
+    }
+
+    public List<ChatDetailResponse> getChatHistory(Long chatId) {
+
+        // 1. 해당 채팅방(chatId)의 대화 내역을 시간순(오래된 것 -> 최신 것)으로 가져옵니다.
+        List<ChatDetail> details = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
+
+        // 2. DB 엔티티(ChatDetail)를 프론트엔드용 DTO(ChatDetailResponse)로 변환해서 리스트로 묶어 반환합니다.
+        return details.stream()
                 .map(detail -> new ChatDetailResponse(
+                        detail.getId(),
                         detail.getRole(),
                         detail.getContent(),
+                        detail.getImageUrl(),
                         detail.getCreatedAt()
                 ))
                 .collect(Collectors.toList());
