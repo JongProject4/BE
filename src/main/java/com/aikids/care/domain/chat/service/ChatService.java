@@ -97,4 +97,11 @@ public class ChatService {
                 ))
                 .collect(Collectors.toList());
     }
+    // 특정 아이의 상담 방 번호 목록을 최신순으로 조회
+    public List<Long> getChatRoomList(Long childId) {
+        return chatRepository.findByChildIdOrderByCreatedAtDesc(childId)
+                .stream()
+                .map(chat -> chat.getId())
+                .collect(Collectors.toList());
+    }
 }
