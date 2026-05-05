@@ -1,0 +1,137 @@
+package com.aikids.care.domain.user.service;
+
+import com.aikids.care.domain.user.dto.CurrentUserResponse;
+import com.aikids.care.domain.user.dto.PatchUserInfoRequest;
+import com.aikids.care.domain.user.dto.UpdateUserInfoRequest;
+import com.aikids.care.domain.user.model.SocialType;
+import com.aikids.care.domain.user.model.User;
+import com.aikids.care.domain.user.model.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+@RequiredArgsConstructor
+public class UserService {
+
+	private final UserRepository userRepository;
+
+	@Transactional
+	public User upsertSocialUser(String socialId, SocialType socialType, String name) {
+		if (socialId == null || socialId.isBlank()) {
+			throw new IllegalArgumentException("socialId must not be blank");
+		}
+		if (socialType == null) {
+			throw new IllegalArgumentException("socialType must not be null");
+		}
+
+		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseGet(() -> User.builder()
+						.socialId(socialId)
+						.socialType(socialType)
+						.name(name)
+						.build());
+
+		// 기존 유저면 (예: 이름 변경) 정도만 반영
+		user.updateName(name);
+		return userRepository.save(user);
+	}
+
+	@Transactional(readOnly = true)
+	public CurrentUserResponse getCurrentUser(String socialId, SocialType socialType) {
+		if (socialId == null || socialId.isBlank()) {
+			throw new IllegalArgumentException("socialId must not be blank");
+		}
+		if (socialType == null) {
+			throw new IllegalArgumentException("socialType must not be null");
+		}
+
+		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+
+		return CurrentUserResponse.from(user);
+	}
+
+	@Transactional
+	public void updateCurrentUserInfo(String socialId, SocialType socialType, UpdateUserInfoRequest request) {
+		if (socialId == null || socialId.isBlank()) {
+			throw new IllegalArgumentException("socialId must not be blank");
+		}
+		if (socialType == null) {
+			throw new IllegalArgumentException("socialType must not be null");
+		}
+		if (request == null || request.isEmpty()) {
+			throw new IllegalArgumentException("At least one field (phoneNumber, fcmToken) must be provided");
+		}
+
+		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+
+		user.updateAdditionalInfo(request.phoneNumber(), request.fcmToken());
+		userRepository.save(user);
+	}
+
+	@Transactional
+	public void patchCurrentUserInfo(String socialId, SocialType socialType, PatchUserInfoRequest request) {
+		if (socialId == null || socialId.isBlank()) {
+			throw new IllegalArgumentException("socialId must not be blank");
+		}
+		if (socialType == null) {
+			throw new IllegalArgumentException("socialType must not be null");
+		}
+		if (request == null || request.isEmpty()) {
+			throw new IllegalArgumentException("At least one field (name, phoneNumber, fcmToken) must be provided");
+		}
+
+		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+
+		// PATCH는 전달된 필드만 부분 반영한다.
+		user.updateName(request.name());
+		user.updateAdditionalInfo(request.phoneNumber(), request.fcmToken());
+		userRepository.save(user);
+	}
+
+	@Transactional
+	public void deleteCurrentUser(String socialId, SocialType socialType) {
+		if (socialId == null || socialId.isBlank()) {
+			throw new IllegalArgumentException("socialId must not be blank");
+		}
+		if (socialType == null) {
+			throw new IllegalArgumentException("socialType must not be null");
+		}
+
+		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+
+		// 현재 인증된 사용자의 계정을 삭제한다.
+		userRepository.delete(user);
+	}
+
+	@Transactional
+	public void updateCurrentUserFcmToken(String socialId, SocialType socialType, String fcmToken) {
+		if (socialId == null || socialId.isBlank()) {
+			throw new IllegalArgumentException("socialId must not be blank");
+		}
+		if (socialType == null) {
+			throw new IllegalArgumentException("socialType must not be null");
+		}
+		if (fcmToken == null || fcmToken.trim().isBlank()) {
+			throw new IllegalArgumentException("fcmToken must not be blank");
+		}
+
+		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+
+		String normalizedToken = fcmToken.trim();
+		// 앱 시작 시 수시 호출되는 API이므로 동일 토큰이면 불필요한 쓰기를 피한다.
+		if (normalizedToken.equals(user.getFcmToken())) {
+			return;
+		}
+
+		user.updateFcmToken(normalizedToken);
+		userRepository.save(user);
+	}
+}
+
