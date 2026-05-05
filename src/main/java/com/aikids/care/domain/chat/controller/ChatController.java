@@ -4,10 +4,12 @@ import com.aikids.care.domain.chat.dto.ChatCreateRequest;
 import com.aikids.care.domain.chat.dto.ChatCreateResponse;
 import com.aikids.care.domain.chat.dto.ChatDetailResponse;
 import com.aikids.care.domain.chat.dto.ChatMessageRequest;
+import com.aikids.care.domain.chat.dto.VoiceChatResponse;
 import com.aikids.care.domain.chat.service.ChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
@@ -40,6 +42,20 @@ public class ChatController {
             @RequestBody ChatMessageRequest request) {
         String aiAnswer = chatService.sendMessage(chatId, request);
         return ResponseEntity.ok(java.util.Map.of("answer", aiAnswer));
+    }
+
+    // 음성 파일을 받아 STT -> LLM 답변까지 처리하는 API
+    @PostMapping("/rooms/{chatId}/voice")
+    public ResponseEntity<?> sendVoiceMessage(
+            @PathVariable Long chatId,
+            @RequestParam("file") MultipartFile file) {
+        try {
+            VoiceChatResponse response = chatService.sendVoiceMessage(chatId, file);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(java.util.Map.of("error", "voice 처리 실패: " + e.getMessage()));
+        }
     }
 
     // 특정 아이(childId)의 상담 방 목록 가져오기 API
