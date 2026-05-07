@@ -40,7 +40,6 @@ out/
 *.class
 
 ### Sensitive config ###
-application.yml
 application-gemini.yml
 application-oauth.yml
 

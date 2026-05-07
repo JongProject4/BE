@@ -8,7 +8,9 @@ import java.time.LocalDateTime;
 @Getter
 @AllArgsConstructor
 public class ChatDetailResponse {
-    private Role role;           // USER인지 AI인지
+    private Long id;
+    private Role role;           // USER 인지 AI 인지
     private String content;      // 대화 내용
-    private LocalDateTime time;  // 보낸 시간
+    private String imageUrl;     // 이미지 URL (없으면 null)
+    private LocalDateTime createdAt;
 }
