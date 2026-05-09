@@ -34,12 +34,12 @@ public class RagConfig {
             @Override
             public EmbeddingResponse call(EmbeddingRequest request) {
                 RestTemplate restTemplate = new RestTemplate();
-                String url = "https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=" + apiKey;
+                String url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-embedding-001:embedContent?key=" + apiKey;
                 List<Embedding> embeddings = new ArrayList<>();
                 for (int i = 0; i < request.getInstructions().size(); i++) {
                     String text = request.getInstructions().get(i);
                     Map<String, Object> body = Map.of(
-                            "model", "models/text-embedding-004",
+                            "model", "models/gemini-embedding-001",
                             "content", Map.of("parts", List.of(Map.of("text", text)))
                     );
                     HttpHeaders headers = new HttpHeaders();
@@ -65,7 +65,7 @@ public class RagConfig {
 
             @Override
             public int dimensions() {
-                return 768;
+                return 3072;
             }
         };
     }
