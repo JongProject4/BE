@@ -16,9 +16,9 @@ public class GeminiService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    private static final String MODEL = "gemini-2.5-flash-preview-05-20";
+    private static final String MODEL = "gemini-2.5-flash";
     private static final String URL = "https://generativelanguage.googleapis.com/v1/models/"
-            + MODEL + ":generateContent?key=";
+        + MODEL + ":generateContent?key=";
 
     private static final String SYSTEM_PROMPT =
             "당신은 친절하고 전문적인 '소아 응급 상담 AI 보조'입니다. " +
