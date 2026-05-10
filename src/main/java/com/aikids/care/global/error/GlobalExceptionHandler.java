@@ -1,10 +1,12 @@
 package com.aikids.care.global.error;
 
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
     // 프로젝트 전체에서 발생하는 예외를 처리함
@@ -27,10 +29,19 @@ public class GlobalExceptionHandler {
                 .body(message);
     }
 
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<String> handleIllegalArgumentException(IllegalArgumentException e) {
+        log.warn("잘못된 요청: {}", e.getMessage(), e);
+        return ResponseEntity
+                .badRequest()
+                .body(e.getMessage());
+    }
+
     @ExceptionHandler(Exception.class)
     public ResponseEntity<String> handleException(Exception e) {
+        log.error("처리되지 않은 서버 예외 발생", e);
         return ResponseEntity
                 .internalServerError()
-                .body(ErrorCode.INTERNAL_SERVER_ERROR.getMessage());
+                .body(ErrorCode.INTERNAL_SERVER_ERROR.getMessage() + " / " + e.getMessage());
     }
 }

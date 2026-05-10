@@ -1,12 +1,28 @@
 package com.aikids.care.domain.chat.controller;
 
-import com.aikids.care.domain.chat.dto.*;
+import com.aikids.care.domain.chat.dto.ChatCreateRequest;
+import com.aikids.care.domain.chat.dto.ChatCreateResponse;
+import com.aikids.care.domain.chat.dto.ChatDetailResponse;
+import com.aikids.care.domain.chat.dto.ChatMessageRequest;
+import com.aikids.care.domain.chat.dto.ChatMessageResponse;
+import com.aikids.care.domain.chat.dto.ChatUpdateRequest;
+import com.aikids.care.domain.chat.dto.VoiceChatResponse;
 import com.aikids.care.domain.chat.service.ChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/chats")
@@ -24,11 +40,30 @@ public class ChatController {
 
     // 2. 부모 메시지 전송 및 AI 답변 반환 (POST /api/chat/{chat_id}/messages)
     @PostMapping("/{chatId}/messages")
-    public ResponseEntity<ChatMessageResponse> sendMessage( // 반환 타입 변경
-                                                            @PathVariable Long chatId,
-                                                            @RequestBody ChatMessageRequest request) {
+    public ResponseEntity<ChatMessageResponse> sendMessage(@PathVariable Long chatId,
+                                                           @RequestBody ChatMessageRequest request) {
         String aiAnswer = chatService.sendMessage(chatId, request);
-        return ResponseEntity.ok(new ChatMessageResponse(aiAnswer)); // 객체로 감싸서 반환
+        return ResponseEntity.ok(new ChatMessageResponse(aiAnswer));
+    }
+
+    // 음성 파일을 받아 STT -> LLM 답변까지 처리하는 API (POST /api/chats/{chatId}/voices)
+    @PostMapping("/{chatId}/voices")
+    public ResponseEntity<?> sendVoiceMessage(@PathVariable Long chatId,
+                                              @RequestParam("file") MultipartFile file) {
+        try {
+            VoiceChatResponse response = chatService.sendVoiceMessage(chatId, file);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError()
+                    .body(Map.of("error", "voice 처리 실패: " + e.getMessage()));
+        }
+    }
+
+    // 특정 아이(childId)의 상담 방 목록 가져오기 API
+    @GetMapping("/rooms/list/{childId}")
+    public ResponseEntity<List<Long>> getChatRoomList(@PathVariable Long childId) {
+        List<Long> roomIds = chatService.getChatRoomList(childId);
+        return ResponseEntity.ok(roomIds);
     }
 
     // 3. 상담 세션 분석 결과 업데이트 (PATCH /api/chat/{chat_id})
