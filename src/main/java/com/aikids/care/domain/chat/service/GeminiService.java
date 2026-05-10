@@ -16,7 +16,7 @@ public class GeminiService {
 
     private final RestTemplate restTemplate = new RestTemplate();
 
-    private static final String MODEL = "gemini-2.0-flash-lite";
+    private static final String MODEL = "gemini-2.5-flash-preview-05-20";
     private static final String URL = "https://generativelanguage.googleapis.com/v1/models/"
             + MODEL + ":generateContent?key=";
 
