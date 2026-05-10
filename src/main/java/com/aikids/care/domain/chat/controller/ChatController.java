@@ -46,8 +46,8 @@ public class ChatController {
         return ResponseEntity.ok(new ChatMessageResponse(aiAnswer));
     }
 
-    // 음성 파일을 받아 STT -> LLM 답변까지 처리하는 API
-    @PostMapping("/{chatId}/voice")
+    // 음성 파일을 받아 STT -> LLM 답변까지 처리하는 API (POST /api/chats/{chatId}/voices)
+    @PostMapping("/{chatId}/voices")
     public ResponseEntity<?> sendVoiceMessage(@PathVariable Long chatId,
                                               @RequestParam("file") MultipartFile file) {
         try {
