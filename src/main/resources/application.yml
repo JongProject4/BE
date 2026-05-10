@@ -1,11 +1,11 @@
 spring:
   profiles:
-    include: gemini
+    include: gemini,oauth
   datasource:
-    url: jdbc:mysql://localhost:3306/aikids?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
+    url: jdbc:mysql://localhost:3306/aikids_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
-    password: ${DB_PASSWORD}
+    password: ${DB_PASSWORD:wlals0298*}
 
   jpa:
     hibernate:
@@ -23,3 +23,12 @@ spring:
         chat:
           options:
             model: "gemini-2.5-flash"
+
+app:
+  jwt:
+    secret: ${JWT_SECRET:dev-jwt-secret-key-change-this-at-least-32-bytes}
+    expiration-ms: ${JWT_EXPIRATION_MS:86400000}
+  oauth2:
+    frontend-redirect-uri: ${OAUTH2_FRONTEND_REDIRECT_URI:http://localhost:3000/}
+  stt:
+    credentials-path: ${GOOGLE_STT_CREDENTIALS_PATH:keys/ai-kids-care-guide-b1211d7af27f.json}

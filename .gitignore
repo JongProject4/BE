@@ -42,6 +42,7 @@ out/
 ### Sensitive config ###
 application-gemini.yml
 application-oauth.yml
+application.yml
 
 ### Local secrets (Google STT 등 서비스 계정 키) ###
 keys/
