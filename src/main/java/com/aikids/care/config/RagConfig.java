@@ -23,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 
 @Configuration
+@Profile("!local")
 public class RagConfig {
 
     @Value("${spring.ai.google.genai.api-key}")
