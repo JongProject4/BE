@@ -1,12 +1,29 @@
 spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          google:
+            client-id: 543142626935-6vc6c2gqu8npnlpbtcltm5ea21i7d9qq.apps.googleusercontent.com
+            client-secret: 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
+            scope:
+              - email
+              - profile
+        provider:
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            user-info-uri: https://openidconnect.googleapis.com/v1/userinfo
+            user-name-attribute: sub
   profiles:
     include: gemini,oauth
   datasource:
     url: jdbc:mysql://localhost:3306/aikids_db?serverTimezone=Asia/Seoul&characterEncoding=UTF-8
     driver-class-name: com.mysql.cj.jdbc.Driver
     username: root
-    password: ${DB_PASSWORD:wlals0298*}
-
+    password: 7011
+  autoconfigure:
+    exclude: org.springframework.ai.vectorstore.chroma.autoconfigure.ChromaVectorStoreAutoConfiguration
   jpa:
     hibernate:
       ddl-auto: update
