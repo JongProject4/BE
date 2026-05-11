@@ -1,12 +1,6 @@
 package com.aikids.care.domain.chat.controller;
 
-import com.aikids.care.domain.chat.dto.ChatCreateRequest;
-import com.aikids.care.domain.chat.dto.ChatCreateResponse;
-import com.aikids.care.domain.chat.dto.ChatDetailResponse;
-import com.aikids.care.domain.chat.dto.ChatMessageRequest;
-import com.aikids.care.domain.chat.dto.ChatMessageResponse;
-import com.aikids.care.domain.chat.dto.ChatUpdateRequest;
-import com.aikids.care.domain.chat.dto.VoiceChatResponse;
+import com.aikids.care.domain.chat.dto.*;
 import com.aikids.care.domain.chat.service.ChatService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -85,5 +79,11 @@ public class ChatController {
     public ResponseEntity<Void> deleteChat(@PathVariable Long chatId) {
         chatService.deleteChat(chatId);
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/{chatId}/analyze")
+    public ResponseEntity<AiAnalysisResponse> analyzeChat(@PathVariable Long chatId) {
+        AiAnalysisResponse response = chatService.analyzeChatAndSave(chatId);
+        return ResponseEntity.ok(response);
     }
 }

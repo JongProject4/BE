@@ -22,7 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-@Configuration
+//@Configuration
 public class RagConfig {
 
     @Value("${spring.ai.google.genai.api-key}")
