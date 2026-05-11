@@ -2,14 +2,12 @@ package com.aikids.care.infra.gemini;
 
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 
 /**
- * Spring AI가 {@link ChatModel} 빈을 만들 때만 등록된다.
- * {@code spring.ai.model.chat: none} 인 경우 빈이 없으므로 앱 기동은 계속된다.
+ * Gemini 호출을 담당하는 클라이언트.
  */
-@Component
-@ConditionalOnBean(ChatModel.class)
 public class GeminiApiClient {
 
     private final ChatModel chatModel;
@@ -25,5 +23,14 @@ public class GeminiApiClient {
 
         System.out.println("제미나이 답변: " + aiResponse);
         return aiResponse;
+    }
+}
+
+@Configuration
+class GeminiClientConfig {
+    @Bean
+    @ConditionalOnBean(ChatModel.class)
+    GeminiApiClient geminiApiClient(ChatModel chatModel) {
+        return new GeminiApiClient(chatModel);
     }
 }
