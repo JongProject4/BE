@@ -24,8 +24,8 @@ public class HospitalAlarmService {
     private final ChildRepository childRepository;
 
     // 내원 알림 목록 조회
-    public List<HospitalAlarmResponse> getHospitalAlarms(Long childId) {
-        validateChild(childId);
+    public List<HospitalAlarmResponse> getHospitalAlarms(Long childId, Long userId) {
+        validateChild(childId, userId);
         return hospitalAlarmRepository.findByChild_Id(childId)
                 .stream()
                 .map(HospitalAlarmResponse::from)
@@ -34,8 +34,8 @@ public class HospitalAlarmService {
 
     // 내원 알림 등록
     @Transactional
-    public HospitalAlarmResponse createHospitalAlarm(Long childId, HospitalAlarmRequest request) {
-        Child child = validateChild(childId);
+    public HospitalAlarmResponse createHospitalAlarm(Long childId, HospitalAlarmRequest request, Long userId) {
+        Child child = validateChild(childId, userId);
 
         HospitalAlarm hospitalAlarm = HospitalAlarm.builder()
                 .child(child)
@@ -49,10 +49,10 @@ public class HospitalAlarmService {
 
     // 내원 알림 수정
     @Transactional
-    public HospitalAlarmResponse updateHospitalAlarm(Long childId, Long alarmId, HospitalAlarmRequest request) {
-        validateChild(childId);
+    public HospitalAlarmResponse updateHospitalAlarm(Long childId, Long alarmId, HospitalAlarmRequest request, Long userId) {
+        validateChild(childId, userId);
 
-        HospitalAlarm hospitalAlarm = hospitalAlarmRepository.findById(alarmId)
+        HospitalAlarm hospitalAlarm = hospitalAlarmRepository.findByIdAndChild_Id(alarmId, childId)
                 .orElseThrow(() -> new CustomException(ErrorCode.HOSPITAL_ALARM_NOT_FOUND));
 
         hospitalAlarm.update(request.getHospitalName(), request.getVisitDate(),
@@ -63,17 +63,17 @@ public class HospitalAlarmService {
 
     // 내원 알림 삭제
     @Transactional
-    public void deleteHospitalAlarm(Long childId, Long alarmId) {
-        validateChild(childId);
+    public void deleteHospitalAlarm(Long childId, Long alarmId, Long userId) {
+        validateChild(childId, userId);
 
-        HospitalAlarm hospitalAlarm = hospitalAlarmRepository.findById(alarmId)
+        HospitalAlarm hospitalAlarm = hospitalAlarmRepository.findByIdAndChild_Id(alarmId, childId)
                 .orElseThrow(() -> new CustomException(ErrorCode.HOSPITAL_ALARM_NOT_FOUND));
 
         hospitalAlarmRepository.delete(hospitalAlarm);
     }
 
-    private Child validateChild(Long childId) {
-        return childRepository.findById(childId)
+    private Child validateChild(Long childId, Long userId) {
+        return childRepository.findByIdAndUser_Id(childId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CHILD_NOT_FOUND));
     }
 }

@@ -4,9 +4,10 @@ import com.aikids.care.domain.medicationalarm.entity.MedicationAlarm;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface MedicationAlarmRepository extends JpaRepository<MedicationAlarm, Long> {
 
-    // 아이 ID로 복약 알림 목록 조회
     List<MedicationAlarm> findByChild_Id(Long childId);
+    Optional<MedicationAlarm> findByIdAndChild_Id(Long id, Long childId);
 }
