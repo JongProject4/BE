@@ -17,12 +17,15 @@ public class TokenGenerator {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
 
+        Long userId = 1L; // 테스트용 userId (실제 DB에 존재하는 값으로 교체)
+
         String token = Jwts.builder()
                 .subject("testUser")
                 .issuedAt(now)
                 .expiration(expiry)
                 .claim("socialId", "testUser")
                 .claim("socialType", "KAKAO")
+                .claim("userId", userId)
                 .claim("name", "테스트")
                 .signWith(secretKey)
                 .compact();

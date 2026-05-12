@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,54 +20,57 @@ public class MedicationAlarmController {
 
     private final MedicationAlarmService medicationAlarmService;
 
-    /**
-     * GET /api/children/{childId}/medication-alarms
-     * 복약 알림 목록 조회
-     */
     @GetMapping
     public ResponseEntity<List<MedicationAlarmResponse>> getMedicationAlarms(
+            @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long childId
     ) {
-        return ResponseEntity.ok(medicationAlarmService.getMedicationAlarms(childId));
+        Long userId = extractUserId(oauth2User);
+        return ResponseEntity.ok(medicationAlarmService.getMedicationAlarms(childId, userId));
     }
 
-    /**
-     * POST /api/children/{childId}/medication-alarms
-     * 복약 알림 등록
-     */
     @PostMapping
     public ResponseEntity<MedicationAlarmResponse> createMedicationAlarm(
+            @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long childId,
             @Valid @RequestBody MedicationAlarmRequest request
     ) {
+        Long userId = extractUserId(oauth2User);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(medicationAlarmService.createMedicationAlarm(childId, request));
+                .body(medicationAlarmService.createMedicationAlarm(childId, request, userId));
     }
 
-    /**
-     * PUT /api/children/{childId}/medication-alarms/{id}
-     * 복약 알림 수정
-     */
     @PutMapping("/{id}")
     public ResponseEntity<MedicationAlarmResponse> updateMedicationAlarm(
+            @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long childId,
             @PathVariable Long id,
             @Valid @RequestBody MedicationAlarmRequest request
     ) {
-        return ResponseEntity.ok(medicationAlarmService.updateMedicationAlarm(childId, id, request));
+        Long userId = extractUserId(oauth2User);
+        return ResponseEntity.ok(medicationAlarmService.updateMedicationAlarm(childId, id, request, userId));
     }
 
-    /**
-     * DELETE /api/children/{childId}/medication-alarms/{id}
-     * 복약 알림 삭제
-     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteMedicationAlarm(
+            @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long childId,
             @PathVariable Long id
     ) {
-        medicationAlarmService.deleteMedicationAlarm(childId, id);
+        Long userId = extractUserId(oauth2User);
+        medicationAlarmService.deleteMedicationAlarm(childId, id, userId);
         return ResponseEntity.noContent().build();
+    }
+
+    private Long extractUserId(OAuth2User oauth2User) {
+        if (oauth2User == null) {
+            throw new IllegalArgumentException("Unauthenticated user.");
+        }
+        Object userId = oauth2User.getAttributes().get("userId");
+        if (userId == null) {
+            throw new IllegalStateException("OAuth2 attributes are missing userId.");
+        }
+        return ((Number) userId).longValue();
     }
 }

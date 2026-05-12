@@ -7,6 +7,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -18,54 +20,57 @@ public class HospitalAlarmController {
 
     private final HospitalAlarmService hospitalAlarmService;
 
-    /**
-     * GET /api/children/{childId}/hospital-alarms
-     * 내원 알림 목록 조회
-     */
     @GetMapping
     public ResponseEntity<List<HospitalAlarmResponse>> getHospitalAlarms(
+            @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long childId
     ) {
-        return ResponseEntity.ok(hospitalAlarmService.getHospitalAlarms(childId));
+        Long userId = extractUserId(oauth2User);
+        return ResponseEntity.ok(hospitalAlarmService.getHospitalAlarms(childId, userId));
     }
 
-    /**
-     * POST /api/children/{childId}/hospital-alarms
-     * 내원 알림 등록
-     */
     @PostMapping
     public ResponseEntity<HospitalAlarmResponse> createHospitalAlarm(
+            @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long childId,
             @Valid @RequestBody HospitalAlarmRequest request
     ) {
+        Long userId = extractUserId(oauth2User);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(hospitalAlarmService.createHospitalAlarm(childId, request));
+                .body(hospitalAlarmService.createHospitalAlarm(childId, request, userId));
     }
 
-    /**
-     * PUT /api/children/{childId}/hospital-alarms/{id}
-     * 내원 알림 수정
-     */
     @PutMapping("/{id}")
     public ResponseEntity<HospitalAlarmResponse> updateHospitalAlarm(
+            @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long childId,
             @PathVariable Long id,
             @Valid @RequestBody HospitalAlarmRequest request
     ) {
-        return ResponseEntity.ok(hospitalAlarmService.updateHospitalAlarm(childId, id, request));
+        Long userId = extractUserId(oauth2User);
+        return ResponseEntity.ok(hospitalAlarmService.updateHospitalAlarm(childId, id, request, userId));
     }
 
-    /**
-     * DELETE /api/children/{childId}/hospital-alarms/{id}
-     * 내원 알림 삭제
-     */
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteHospitalAlarm(
+            @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long childId,
             @PathVariable Long id
     ) {
-        hospitalAlarmService.deleteHospitalAlarm(childId, id);
+        Long userId = extractUserId(oauth2User);
+        hospitalAlarmService.deleteHospitalAlarm(childId, id, userId);
         return ResponseEntity.noContent().build();
+    }
+
+    private Long extractUserId(OAuth2User oauth2User) {
+        if (oauth2User == null) {
+            throw new IllegalArgumentException("Unauthenticated user.");
+        }
+        Object userId = oauth2User.getAttributes().get("userId");
+        if (userId == null) {
+            throw new IllegalStateException("OAuth2 attributes are missing userId.");
+        }
+        return ((Number) userId).longValue();
     }
 }
