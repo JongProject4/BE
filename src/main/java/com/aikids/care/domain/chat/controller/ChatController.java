@@ -80,7 +80,14 @@ public class ChatController {
         return ResponseEntity.ok(history);
     }
 
-    // 5. 상담 세션 삭제 (DELETE /api/chat/{chat_id})
+    // 5. 채팅 종료 — Redis 히스토리 요약 후 RDS 저장 (POST /api/chats/{chatId}/close)
+    @PostMapping("/{chatId}/close")
+    public ResponseEntity<Void> closeChat(@PathVariable Long chatId) {
+        chatService.closeChat(chatId);
+        return ResponseEntity.ok().build();
+    }
+
+    // 6. 상담 세션 삭제 (DELETE /api/chats/{chatId})
     @DeleteMapping("/{chatId}")
     public ResponseEntity<Void> deleteChat(@PathVariable Long chatId) {
         chatService.deleteChat(chatId);
