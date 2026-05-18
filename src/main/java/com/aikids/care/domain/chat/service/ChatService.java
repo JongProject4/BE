@@ -28,12 +28,13 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ChatService {
 
+    private static final int MAX_HISTORY_MESSAGES = 40; // 최근 20턴
+
     private final ChatRepository chatRepository;
     private final ChatDetailRepository chatDetailRepository;
     private final GeminiService geminiService;
     private final GoogleSttClient googleSttClient;
     private final TransactionTemplate transactionTemplate;
-    private final ChatHistoryRedisService chatHistoryRedisService;
 
     @Transactional
     public Long createChat(ChatCreateRequest request) {
@@ -59,6 +60,9 @@ public class ChatService {
 
     // LLM 호출 구간에 DB 커넥션을 점유하지 않도록 TransactionTemplate으로 트랜잭션 분리
     private String sendTextMessage(Long chatId, String userContent, String imageUrl) {
+        // Gemini 호출 전 기존 대화 히스토리 조회 (현재 메시지 제외)
+        List<Map<String, String>> history = loadHistory(chatId);
+
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
                     .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
@@ -71,14 +75,7 @@ public class ChatService {
             return null;
         });
 
-        chatHistoryRedisService.addMessage(chatId, "user", userContent);
-
-        List<Map<String, String>> history = chatHistoryRedisService.getHistory(chatId);
-        // 현재 방금 추가한 user 메시지는 history에 포함돼 있으므로 제외하고 전달
-        List<Map<String, String>> historyWithoutLast = history.subList(0, history.size() - 1);
-        String aiContent = geminiService.askQuestion(userContent, historyWithoutLast);
-
-        chatHistoryRedisService.addMessage(chatId, "model", aiContent);
+        String aiContent = geminiService.askQuestion(userContent, history);
 
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
@@ -99,13 +96,11 @@ public class ChatService {
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
 
-        List<Map<String, String>> history = chatHistoryRedisService.getHistory(chatId);
+        List<Map<String, String>> history = loadHistory(chatId);
         if (!history.isEmpty()) {
             String summary = geminiService.summarize(history);
             chat.updateSummary(summary);
         }
-
-        chatHistoryRedisService.deleteHistory(chatId);
     }
 
     @Transactional
@@ -119,7 +114,6 @@ public class ChatService {
     public void deleteChat(Long chatId) {
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
-        chatHistoryRedisService.deleteHistory(chatId);
         chatRepository.delete(chat);
     }
 
@@ -141,6 +135,20 @@ public class ChatService {
                 .stream()
                 .map(Chat::getId)
                 .collect(Collectors.toList());
+    }
+
+    private List<Map<String, String>> loadHistory(Long chatId) {
+        List<ChatDetail> details = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
+        List<ChatDetail> recent = details.size() > MAX_HISTORY_MESSAGES
+                ? details.subList(details.size() - MAX_HISTORY_MESSAGES, details.size())
+                : details;
+        return recent.stream()
+                .map(d -> Map.of("role", toGeminiRole(d.getRole()), "content", d.getContent()))
+                .collect(Collectors.toList());
+    }
+
+    private String toGeminiRole(Role role) {
+        return role == Role.USER ? "user" : "model";
     }
 
     private String abbreviate(String text, int maxLength) {
