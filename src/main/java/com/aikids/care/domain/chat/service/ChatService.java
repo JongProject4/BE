@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -24,6 +25,7 @@ public class ChatService {
     private final ChatRepository chatRepository;
     private final ChatDetailRepository chatDetailRepository;
     private final ObjectProvider<GeminiApiClient> geminiApiClientProvider;
+    private final TransactionTemplate transactionTemplate;
 
     // 새로운 상담 세션 생성 API
     @Transactional
@@ -36,17 +38,15 @@ public class ChatService {
     }
 
     // 메시지 전송 및 AI 답변 받기 API
-    @Transactional
+    // @Transactional 제거 — LLM 호출 구간에 DB 커넥션을 점유하지 않도록 TransactionTemplate 사용
     public String sendMessage(Long chatId, ChatMessageRequest request) {
-        Chat chat = chatRepository.findById(chatId)
-                .orElseThrow(() -> new IllegalArgumentException("해당 상담 세션을 찾을 수 없습니다."));
-
-        ChatDetail userMessage = ChatDetail.builder()
-                .chat(chat)
-                .role(Role.USER)
-                .content(request.getContent())
-                .build();
-        chatDetailRepository.save(userMessage);
+        transactionTemplate.execute(status -> {
+            Chat chat = chatRepository.findById(chatId)
+                    .orElseThrow(() -> new IllegalArgumentException("해당 상담 세션을 찾을 수 없습니다."));
+            chatDetailRepository.save(ChatDetail.builder()
+                    .chat(chat).role(Role.USER).content(request.getContent()).build());
+            return null;
+        });
 
         GeminiApiClient gemini = geminiApiClientProvider.getIfAvailable();
         String aiResponseText = gemini != null
@@ -54,12 +54,13 @@ public class ChatService {
                 : "[AI 비활성화] spring.ai.model.chat 가 none 입니다. "
                         + "Gemini를 쓰려면 gemini 프로필과 GEMINI_API_KEY를 설정하세요.";
 
-        ChatDetail aiMessage = ChatDetail.builder()
-                .chat(chat)
-                .role(Role.AI)
-                .content(aiResponseText)
-                .build();
-        chatDetailRepository.save(aiMessage);
+        transactionTemplate.execute(status -> {
+            Chat chat = chatRepository.findById(chatId)
+                    .orElseThrow(() -> new IllegalArgumentException("해당 상담 세션을 찾을 수 없습니다."));
+            chatDetailRepository.save(ChatDetail.builder()
+                    .chat(chat).role(Role.AI).content(aiResponseText).build());
+            return null;
+        });
 
         return aiResponseText;
     }
