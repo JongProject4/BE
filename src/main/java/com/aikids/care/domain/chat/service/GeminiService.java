@@ -90,9 +90,13 @@ public class GeminiService {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
-        List<Map> candidates = (List<Map>) response.getBody().get("candidates");
-        Map content = (Map) candidates.get(0).get("content");
-        List<Map> parts = (List<Map>) content.get("parts");
-        return (String) parts.get(0).get("text");
+        try {
+            List<Map> candidates = (List<Map>) response.getBody().get("candidates");
+            Map content = (Map) candidates.get(0).get("content");
+            List<Map> parts = (List<Map>) content.get("parts");
+            return (String) parts.get(0).get("text");
+        } catch (NullPointerException | IndexOutOfBoundsException | ClassCastException e) {
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
     }
 }

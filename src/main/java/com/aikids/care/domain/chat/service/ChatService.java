@@ -91,16 +91,18 @@ public class ChatService {
         return aiContent;
     }
 
-    @Transactional
     public void closeChat(Long chatId) {
-        Chat chat = chatRepository.findById(chatId)
-                .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
-
         List<Map<String, String>> history = loadHistory(chatId);
-        if (!history.isEmpty()) {
-            String summary = geminiService.summarize(history);
+        if (history.isEmpty()) return;
+
+        String summary = geminiService.summarize(history);
+
+        transactionTemplate.execute(status -> {
+            Chat chat = chatRepository.findById(chatId)
+                    .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
             chat.updateSummary(summary);
-        }
+            return null;
+        });
     }
 
     @Transactional
