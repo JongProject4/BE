@@ -1,8 +1,11 @@
 package com.aikids.care.domain.chat.service;
 
+import com.aikids.care.global.error.CustomException;
+import com.aikids.care.global.error.ErrorCode;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
@@ -43,9 +46,15 @@ public class GeminiService {
 
         HttpEntity<Map<String, Object>> request = new HttpEntity<>(body, headers);
 
-        ResponseEntity<Map> response = restTemplate.postForEntity(
-            URL + apiKey, request, Map.class
-        );
+        ResponseEntity<Map> response;
+        try {
+            response = restTemplate.postForEntity(URL + apiKey, request, Map.class);
+        } catch (HttpServerErrorException e) {
+            if (e.getStatusCode() == HttpStatus.SERVICE_UNAVAILABLE) {
+                throw new CustomException(ErrorCode.AI_SERVICE_UNAVAILABLE);
+            }
+            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+        }
 
         List<Map> candidates = (List<Map>) response.getBody().get("candidates");
         Map content = (Map) candidates.get(0).get("content");
