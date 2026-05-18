@@ -1,5 +1,6 @@
 package com.aikids.care.domain.child.controller;
 
+import com.aikids.care.domain.chat.service.ChatService;
 import com.aikids.care.domain.child.dto.ChildResponse;
 import com.aikids.care.domain.child.dto.CreateChildRequest;
 import com.aikids.care.domain.child.dto.PatchChildRequest;
@@ -29,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class ChildController {
 
 	private final ChildService childService;
+	private final ChatService chatService;
 
 	@GetMapping
 	public ResponseEntity<List<ChildResponse>> getChildren(@AuthenticationPrincipal OAuth2User oauth2User) {
@@ -117,6 +119,13 @@ public class ChildController {
 			throw new IllegalStateException("OAuth2 attributes are missing social info.");
 		}
 		return new AuthInfo(socialId, SocialType.valueOf(socialTypeStr));
+	}
+
+	// 특정 아이의 상담 방 목록 조회
+	@GetMapping("/{child_id}/chat")
+	public ResponseEntity<List<Long>> getChatRoomsByChild(@PathVariable("child_id") Long childId) {
+		List<Long> chatRoomIds = chatService.getChatRoomList(childId);
+		return ResponseEntity.ok(chatRoomIds);
 	}
 
 	private record AuthInfo(String socialId, SocialType socialType) {
