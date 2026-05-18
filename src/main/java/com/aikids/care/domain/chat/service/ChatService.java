@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -30,6 +31,7 @@ public class ChatService {
     private final ChatDetailRepository chatDetailRepository;
     private final GeminiService geminiService;
     private final GoogleSttClient googleSttClient;
+    private final TransactionTemplate transactionTemplate;
 
     // 1. 새로운 상담 세션(빈 방) 생성
     @Transactional
@@ -41,12 +43,10 @@ public class ChatService {
     }
 
     // 2. 메시지 전송 및 AI 답변 받기
-    @Transactional
     public String sendMessage(Long chatId, ChatMessageRequest request) {
         return sendTextMessage(chatId, request.getContent(), request.getImageUrl());
     }
 
-    @Transactional
     public VoiceChatResponse sendVoiceMessage(Long chatId, MultipartFile audioFile) throws IOException {
         String userQuestion = googleSttClient.transcribe(audioFile.getBytes());
         log.info("[STT] chatId={}, transcript='{}'", chatId, abbreviate(userQuestion, 200));
@@ -57,30 +57,32 @@ public class ChatService {
         return new VoiceChatResponse(userQuestion, aiAnswer);
     }
 
+    // LLM 호출 구간에 DB 커넥션을 점유하지 않도록 TransactionTemplate으로 트랜잭션 분리
     private String sendTextMessage(Long chatId, String userContent, String imageUrl) {
-        // 1) 채팅방 찾기
-        Chat chat = chatRepository.findById(chatId)
-                .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
+        transactionTemplate.execute(status -> {
+            Chat chat = chatRepository.findById(chatId)
+                    .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
+            chatDetailRepository.save(ChatDetail.builder()
+                    .chat(chat)
+                    .role(Role.USER)
+                    .content(userContent)
+                    .imageUrl(imageUrl)
+                    .build());
+            return null;
+        });
 
-        // 2) 부모가 보낸 메시지(사진 포함)를 DB에 저장
-        ChatDetail userMsg = ChatDetail.builder()
-                .chat(chat)
-                .role(Role.USER)
-                .content(userContent)
-                .imageUrl(imageUrl)
-                .build();
-        chatDetailRepository.save(userMsg);
-
-        // 3) AI에게 물어보고 답변 받기
         String aiContent = geminiService.askQuestion(userContent, imageUrl);
 
-        // 4) AI의 답변을 DB에 저장
-        ChatDetail aiMsg = ChatDetail.builder()
-                .chat(chat)
-                .role(Role.AI)
-                .content(aiContent)
-                .build();
-        chatDetailRepository.save(aiMsg);
+        transactionTemplate.execute(status -> {
+            Chat chat = chatRepository.findById(chatId)
+                    .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
+            chatDetailRepository.save(ChatDetail.builder()
+                    .chat(chat)
+                    .role(Role.AI)
+                    .content(aiContent)
+                    .build());
+            return null;
+        });
 
         return aiContent;
     }
@@ -103,10 +105,8 @@ public class ChatService {
     }
 
     public List<ChatDetailResponse> getChatHistory(Long chatId) {
-        // 1. 해당 채팅방(chatId)의 대화 내역을 시간순(오래된 것 -> 최신 것)으로 가져옵니다.
         List<ChatDetail> details = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
 
-        // 2. DB 엔티티(ChatDetail)를 프론트엔드용 DTO(ChatDetailResponse)로 변환해서 리스트로 묶어 반환합니다.
         return details.stream()
                 .map(detail -> new ChatDetailResponse(
                         detail.getId(),
@@ -118,7 +118,6 @@ public class ChatService {
                 .collect(Collectors.toList());
     }
 
-    // 특정 아이의 상담 방 번호 목록을 최신순으로 조회
     public List<Long> getChatRoomList(Long childId) {
         return chatRepository.findByChildIdOrderByCreatedAtDesc(childId)
                 .stream()
