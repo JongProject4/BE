@@ -22,6 +22,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -29,13 +30,14 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class ChatService {
 
+    private static final int MAX_HISTORY_MESSAGES = 40; // 최근 20턴
+
     private final ChatRepository chatRepository;
     private final ChatDetailRepository chatDetailRepository;
     private final GeminiService geminiService;
     private final GoogleSttClient googleSttClient;
     private final TransactionTemplate transactionTemplate;
 
-    // 1. 새로운 상담 세션(빈 방) 생성
     @Transactional
     public Long createChat(ChatCreateRequest request) {
         Chat chat = Chat.builder()
@@ -44,7 +46,6 @@ public class ChatService {
         return chatRepository.save(chat).getId();
     }
 
-    // 2. 메시지 전송 및 AI 답변 받기
     public String sendMessage(Long chatId, ChatMessageRequest request) {
         return sendTextMessage(chatId, request.getContent(), request.getImageUrl());
     }
@@ -61,6 +62,9 @@ public class ChatService {
 
     // LLM 호출 구간에 DB 커넥션을 점유하지 않도록 TransactionTemplate으로 트랜잭션 분리
     private String sendTextMessage(Long chatId, String userContent, String imageUrl) {
+        // Gemini 호출 전 기존 대화 히스토리 조회 (현재 메시지 제외)
+        List<Map<String, String>> history = loadHistory(chatId);
+
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
                     .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
@@ -73,7 +77,7 @@ public class ChatService {
             return null;
         });
 
-        String aiContent = geminiService.askQuestion(userContent, imageUrl);
+        String aiContent = geminiService.askQuestion(userContent, history);
 
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
@@ -89,16 +93,27 @@ public class ChatService {
         return aiContent;
     }
 
-    // 3. AI 분석 결과 업데이트 (PATCH API)
+    public void closeChat(Long chatId) {
+        List<Map<String, String>> history = loadHistory(chatId);
+        if (history.isEmpty()) return;
+
+        String summary = geminiService.summarize(history);
+
+        transactionTemplate.execute(status -> {
+            Chat chat = chatRepository.findById(chatId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
+            chat.updateSummary(summary);
+            return null;
+        });
+    }
+
     @Transactional
     public void updateChatResult(Long chatId, ChatUpdateRequest request) {
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
-
         chat.updateResult(request.getCategory(), request.getRiskLevel());
     }
 
-    // 4. 채팅방 삭제
     @Transactional
     public void deleteChat(Long chatId) {
         Chat chat = chatRepository.findById(chatId)
@@ -108,7 +123,6 @@ public class ChatService {
 
     public List<ChatDetailResponse> getChatHistory(Long chatId) {
         List<ChatDetail> details = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
-
         return details.stream()
                 .map(detail -> new ChatDetailResponse(
                         detail.getId(),
@@ -127,14 +141,24 @@ public class ChatService {
                 .collect(Collectors.toList());
     }
 
+    private List<Map<String, String>> loadHistory(Long chatId) {
+        List<ChatDetail> details = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
+        List<ChatDetail> recent = details.size() > MAX_HISTORY_MESSAGES
+                ? details.subList(details.size() - MAX_HISTORY_MESSAGES, details.size())
+                : details;
+        return recent.stream()
+                .map(d -> Map.of("role", toGeminiRole(d.getRole()), "content", d.getContent()))
+                .collect(Collectors.toList());
+    }
+
+    private String toGeminiRole(Role role) {
+        return role == Role.USER ? "user" : "model";
+    }
+
     private String abbreviate(String text, int maxLength) {
-        if (text == null) {
-            return "";
-        }
+        if (text == null) return "";
         String normalized = text.replaceAll("\\s+", " ").trim();
-        if (normalized.length() <= maxLength) {
-            return normalized;
-        }
+        if (normalized.length() <= maxLength) return normalized;
         return normalized.substring(0, maxLength) + "...";
     }
 }
