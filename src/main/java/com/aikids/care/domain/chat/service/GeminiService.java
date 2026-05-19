@@ -40,7 +40,8 @@ public class GeminiService {
 
         Map<String, Object> body = Map.of(
             "system_instruction", Map.of("parts", List.of(Map.of("text", SYSTEM_PROMPT))),
-            "contents", contents
+            "contents", contents,
+            "generationConfig", Map.of("thinkingConfig", Map.of("thinkingBudget", 0))
         );
 
         return callGemini(body);
@@ -52,12 +53,11 @@ public class GeminiService {
                 .reduce("", (a, b) -> a + "\n" + b);
 
         Map<String, Object> body = Map.of(
-            "system_instruction", Map.of(
-                "parts", List.of(Map.of("text", SYSTEM_PROMPT))
-            ),
+            "system_instruction", Map.of("parts", List.of(Map.of("text", SYSTEM_PROMPT))),
             "contents", List.of(
                 Map.of("parts", List.of(Map.of("text", SUMMARY_PROMPT + "\n\n" + conversationText)))
-            )
+            ),
+            "generationConfig", Map.of("thinkingConfig", Map.of("thinkingBudget", 0))
         );
 
         return callGemini(body);
