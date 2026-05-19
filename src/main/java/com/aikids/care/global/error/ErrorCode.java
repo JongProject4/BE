@@ -16,6 +16,9 @@ public enum ErrorCode {
     // Child
     CHILD_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 아이 프로필을 찾을 수 없습니다."),
 
+    // Chat
+    CHAT_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 상담 세션을 찾을 수 없습니다."),
+
     // Health Log
     HEALTH_LOG_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 헬스 로그를 찾을 수 없습니다."),
 

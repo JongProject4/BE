@@ -22,7 +22,6 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/chats")
@@ -48,15 +47,10 @@ public class ChatController {
 
     // 음성 파일을 받아 STT -> LLM 답변까지 처리하는 API (POST /api/chats/{chatId}/voices)
     @PostMapping("/{chatId}/voices")
-    public ResponseEntity<?> sendVoiceMessage(@PathVariable Long chatId,
-                                              @RequestParam("file") MultipartFile file) {
-        try {
-            VoiceChatResponse response = chatService.sendVoiceMessage(chatId, file);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "voice 처리 실패: " + e.getMessage()));
-        }
+    public ResponseEntity<VoiceChatResponse> sendVoiceMessage(@PathVariable Long chatId,
+                                                              @RequestParam("file") MultipartFile file) throws Exception {
+        VoiceChatResponse response = chatService.sendVoiceMessage(chatId, file);
+        return ResponseEntity.ok(response);
     }
 
     // 특정 아이(childId)의 상담 방 목록 가져오기 API
