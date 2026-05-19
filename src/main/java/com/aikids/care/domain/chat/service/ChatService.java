@@ -10,6 +10,8 @@ import com.aikids.care.domain.chat.model.ChatDetail;
 import com.aikids.care.domain.chat.model.Role;
 import com.aikids.care.domain.chat.repository.ChatDetailRepository;
 import com.aikids.care.domain.chat.repository.ChatRepository;
+import com.aikids.care.global.error.CustomException;
+import com.aikids.care.global.error.ErrorCode;
 import com.aikids.care.infra.stt.GoogleSttClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -65,7 +67,7 @@ public class ChatService {
 
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
-                    .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
+                    .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
             chatDetailRepository.save(ChatDetail.builder()
                     .chat(chat)
                     .role(Role.USER)
@@ -79,7 +81,7 @@ public class ChatService {
 
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
-                    .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
+                    .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
             chatDetailRepository.save(ChatDetail.builder()
                     .chat(chat)
                     .role(Role.AI)
@@ -99,7 +101,7 @@ public class ChatService {
 
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
-                    .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
+                    .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
             chat.updateSummary(summary);
             return null;
         });
@@ -108,14 +110,14 @@ public class ChatService {
     @Transactional
     public void updateChatResult(Long chatId, ChatUpdateRequest request) {
         Chat chat = chatRepository.findById(chatId)
-                .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
         chat.updateResult(request.getCategory(), request.getRiskLevel());
     }
 
     @Transactional
     public void deleteChat(Long chatId) {
         Chat chat = chatRepository.findById(chatId)
-                .orElseThrow(() -> new IllegalArgumentException("채팅방이 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
         chatRepository.delete(chat);
     }
 
