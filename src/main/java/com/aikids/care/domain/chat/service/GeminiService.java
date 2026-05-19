@@ -21,7 +21,7 @@ public class GeminiService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     private static final String MODEL = "gemini-2.5-flash";
-    private static final String URL = "https://generativelanguage.googleapis.com/v1/models/"
+    private static final String URL = "https://generativelanguage.googleapis.com/v1beta/models/"
         + MODEL + ":generateContent?key=";
 
     private static final String SYSTEM_PROMPT =
@@ -52,6 +52,9 @@ public class GeminiService {
                 .reduce("", (a, b) -> a + "\n" + b);
 
         Map<String, Object> body = Map.of(
+            "system_instruction", Map.of(
+                "parts", List.of(Map.of("text", SYSTEM_PROMPT))
+            ),
             "contents", List.of(
                 Map.of("parts", List.of(Map.of("text", SUMMARY_PROMPT + "\n\n" + conversationText)))
             )
