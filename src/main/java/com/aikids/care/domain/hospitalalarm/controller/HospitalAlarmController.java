@@ -3,6 +3,7 @@ package com.aikids.care.domain.hospitalalarm.controller;
 import com.aikids.care.domain.hospitalalarm.dto.HospitalAlarmRequest;
 import com.aikids.care.domain.hospitalalarm.dto.HospitalAlarmResponse;
 import com.aikids.care.domain.hospitalalarm.service.HospitalAlarmService;
+import com.aikids.care.global.security.OAuth2Utils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -25,7 +26,7 @@ public class HospitalAlarmController {
             @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long childId
     ) {
-        Long userId = extractUserId(oauth2User);
+        Long userId = OAuth2Utils.extractUserId(oauth2User);
         return ResponseEntity.ok(hospitalAlarmService.getHospitalAlarms(childId, userId));
     }
 
@@ -35,7 +36,7 @@ public class HospitalAlarmController {
             @PathVariable Long childId,
             @Valid @RequestBody HospitalAlarmRequest request
     ) {
-        Long userId = extractUserId(oauth2User);
+        Long userId = OAuth2Utils.extractUserId(oauth2User);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(hospitalAlarmService.createHospitalAlarm(childId, request, userId));
@@ -48,7 +49,7 @@ public class HospitalAlarmController {
             @PathVariable Long id,
             @Valid @RequestBody HospitalAlarmRequest request
     ) {
-        Long userId = extractUserId(oauth2User);
+        Long userId = OAuth2Utils.extractUserId(oauth2User);
         return ResponseEntity.ok(hospitalAlarmService.updateHospitalAlarm(childId, id, request, userId));
     }
 
@@ -58,19 +59,9 @@ public class HospitalAlarmController {
             @PathVariable Long childId,
             @PathVariable Long id
     ) {
-        Long userId = extractUserId(oauth2User);
+        Long userId = OAuth2Utils.extractUserId(oauth2User);
         hospitalAlarmService.deleteHospitalAlarm(childId, id, userId);
         return ResponseEntity.noContent().build();
     }
 
-    private Long extractUserId(OAuth2User oauth2User) {
-        if (oauth2User == null) {
-            throw new IllegalArgumentException("Unauthenticated user.");
-        }
-        Object userId = oauth2User.getAttributes().get("userId");
-        if (userId == null) {
-            throw new IllegalStateException("OAuth2 attributes are missing userId.");
-        }
-        return ((Number) userId).longValue();
-    }
 }

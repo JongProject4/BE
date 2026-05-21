@@ -17,7 +17,6 @@ import com.aikids.care.domain.user.model.UserRepository;
 import com.aikids.care.global.error.CustomException;
 import com.aikids.care.global.error.ErrorCode;
 import com.aikids.care.infra.stt.GoogleSttClient;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,7 +27,6 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -48,7 +46,7 @@ public class ChatService {
     @Transactional
     public Long createChat(String socialId, SocialType socialType, ChatCreateRequest request) {
         User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
-                .orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         childRepository.findByIdAndUser_Id(request.getChildId(), user.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.FORBIDDEN));
         Chat chat = Chat.builder()
@@ -142,18 +140,18 @@ public class ChatService {
                         detail.getImageUrl(),
                         detail.getCreatedAt()
                 ))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     public List<Long> getChatRoomList(String socialId, SocialType socialType, Long childId) {
         User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
-                .orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         childRepository.findByIdAndUser_Id(childId, user.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.FORBIDDEN));
         return chatRepository.findByChildIdOrderByCreatedAtDesc(childId)
                 .stream()
                 .map(Chat::getId)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private List<Map<String, String>> loadHistory(Long chatId) {
@@ -163,7 +161,7 @@ public class ChatService {
                 : details;
         return recent.stream()
                 .map(d -> Map.of("role", toGeminiRole(d.getRole()), "content", d.getContent()))
-                .collect(Collectors.toList());
+                .toList();
     }
 
     private String toGeminiRole(Role role) {
