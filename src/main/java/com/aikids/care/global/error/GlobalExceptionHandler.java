@@ -34,7 +34,7 @@ public class GlobalExceptionHandler {
         log.warn("잘못된 요청: {}", e.getMessage(), e);
         return ResponseEntity
                 .badRequest()
-                .body(e.getMessage());
+                .body(ErrorCode.INVALID_INPUT_VALUE.getMessage());
     }
 
     @ExceptionHandler(Exception.class)
@@ -42,6 +42,6 @@ public class GlobalExceptionHandler {
         log.error("처리되지 않은 서버 예외 발생", e);
         return ResponseEntity
                 .internalServerError()
-                .body(ErrorCode.INTERNAL_SERVER_ERROR.getMessage() + " / " + e.getMessage());
+                .body(ErrorCode.INTERNAL_SERVER_ERROR.getMessage());
     }
 }
