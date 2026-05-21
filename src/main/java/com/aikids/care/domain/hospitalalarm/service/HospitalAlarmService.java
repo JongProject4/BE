@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +28,7 @@ public class HospitalAlarmService {
         return hospitalAlarmRepository.findByChild_Id(childId)
                 .stream()
                 .map(HospitalAlarmResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 내원 알림 등록

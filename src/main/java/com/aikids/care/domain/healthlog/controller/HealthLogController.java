@@ -4,6 +4,7 @@ import com.aikids.care.domain.healthlog.dto.HealthLogRequest;
 import com.aikids.care.domain.healthlog.dto.HealthLogResponse;
 import com.aikids.care.domain.healthlog.entity.HealthLog.LogType;
 import com.aikids.care.domain.healthlog.service.HealthLogService;
+import com.aikids.care.global.security.OAuth2Utils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -27,7 +28,7 @@ public class HealthLogController {
             @PathVariable Long childId,
             @RequestParam(required = false) LogType logType
     ) {
-        Long userId = extractUserId(oauth2User);
+        Long userId = OAuth2Utils.extractUserId(oauth2User);
         return ResponseEntity.ok(healthLogService.getHealthLogs(childId, logType, userId));
     }
 
@@ -37,20 +38,10 @@ public class HealthLogController {
             @PathVariable Long childId,
             @Valid @RequestBody HealthLogRequest request
     ) {
-        Long userId = extractUserId(oauth2User);
+        Long userId = OAuth2Utils.extractUserId(oauth2User);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(healthLogService.createHealthLog(childId, request, userId));
     }
 
-    private Long extractUserId(OAuth2User oauth2User) {
-        if (oauth2User == null) {
-            throw new IllegalArgumentException("Unauthenticated user.");
-        }
-        Object userId = oauth2User.getAttributes().get("userId");
-        if (userId == null) {
-            throw new IllegalStateException("OAuth2 attributes are missing userId.");
-        }
-        return ((Number) userId).longValue();
-    }
 }

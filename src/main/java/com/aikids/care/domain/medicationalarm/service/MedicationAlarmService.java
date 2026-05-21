@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -29,7 +28,7 @@ public class MedicationAlarmService {
         return medicationAlarmRepository.findByChild_Id(childId)
                 .stream()
                 .map(MedicationAlarmResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 복약 알림 등록
