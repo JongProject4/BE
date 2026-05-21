@@ -2,6 +2,7 @@ package com.aikids.care.domain.chat.service;
 
 import com.aikids.care.global.error.CustomException;
 import com.aikids.care.global.error.ErrorCode;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
@@ -12,6 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+@Slf4j
 @Service
 public class GeminiService {
 
@@ -93,13 +95,37 @@ public class GeminiService {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
 
+        Map responseBody = response.getBody();
+        if (responseBody == null) {
+            log.error("[Gemini] response body is null");
+            throw new CustomException(ErrorCode.AI_SERVICE_UNAVAILABLE);
+        }
+
         try {
-            List<Map> candidates = (List<Map>) response.getBody().get("candidates");
+            List<Map> candidates = (List<Map>) responseBody.get("candidates");
+            if (candidates == null || candidates.isEmpty()) {
+                log.error("[Gemini] candidates is null or empty. response={}", responseBody);
+                throw new CustomException(ErrorCode.AI_SERVICE_UNAVAILABLE);
+            }
             Map content = (Map) candidates.get(0).get("content");
+            if (content == null) {
+                log.error("[Gemini] content is null. candidates={}", candidates);
+                throw new CustomException(ErrorCode.AI_SERVICE_UNAVAILABLE);
+            }
             List<Map> parts = (List<Map>) content.get("parts");
-            return (String) parts.get(0).get("text");
-        } catch (NullPointerException | IndexOutOfBoundsException | ClassCastException e) {
-            throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
+            if (parts == null || parts.isEmpty()) {
+                log.error("[Gemini] parts is null or empty. content={}", content);
+                throw new CustomException(ErrorCode.AI_SERVICE_UNAVAILABLE);
+            }
+            String text = (String) parts.get(0).get("text");
+            if (text == null) {
+                log.error("[Gemini] text is null. parts={}", parts);
+                throw new CustomException(ErrorCode.AI_SERVICE_UNAVAILABLE);
+            }
+            return text;
+        } catch (ClassCastException e) {
+            log.error("[Gemini] unexpected response structure. response={}", responseBody, e);
+            throw new CustomException(ErrorCode.AI_SERVICE_UNAVAILABLE);
         }
     }
 }
