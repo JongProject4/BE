@@ -5,12 +5,10 @@ import com.aikids.care.domain.user.dto.FcmTokenRequest;
 import com.aikids.care.domain.user.dto.PatchUserInfoRequest;
 import com.aikids.care.domain.user.dto.UpdateUserInfoRequest;
 import com.aikids.care.domain.user.dto.UserActionResponse;
-import com.aikids.care.domain.user.model.SocialType;
 import com.aikids.care.domain.user.service.UserService;
-import jakarta.persistence.EntityNotFoundException;
-import java.util.Map;
+import com.aikids.care.global.security.OAuth2Utils;
+import com.aikids.care.global.security.OAuth2Utils.AuthInfo;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
@@ -31,8 +29,8 @@ public class UserController {
 
 	@GetMapping("/me")
 	public CurrentUserResponse me(@AuthenticationPrincipal OAuth2User oauth2User) {
-		AuthInfo authInfo = extractAuthInfo(oauth2User);
-		return userService.getCurrentUser(authInfo.socialId(), authInfo.socialType());
+		AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+		return userService.getCurrentUser(auth.socialId(), auth.socialType());
 	}
 
 	@PostMapping("/me")
@@ -40,15 +38,9 @@ public class UserController {
 			@AuthenticationPrincipal OAuth2User oauth2User,
 			@RequestBody UpdateUserInfoRequest request
 	) {
-		try {
-			AuthInfo authInfo = extractAuthInfo(oauth2User);
-			userService.updateCurrentUserInfo(authInfo.socialId(), authInfo.socialType(), request);
-			return ResponseEntity.ok(UserActionResponse.success("User additional info updated successfully."));
-		} catch (IllegalArgumentException ex) {
-			return ResponseEntity.badRequest().body(UserActionResponse.fail(ex.getMessage()));
-		} catch (EntityNotFoundException ex) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(UserActionResponse.fail(ex.getMessage()));
-		}
+		AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+		userService.updateCurrentUserInfo(auth.socialId(), auth.socialType(), request);
+		return ResponseEntity.ok(UserActionResponse.success("User additional info updated successfully."));
 	}
 
 	@PatchMapping("/me")
@@ -56,28 +48,16 @@ public class UserController {
 			@AuthenticationPrincipal OAuth2User oauth2User,
 			@RequestBody PatchUserInfoRequest request
 	) {
-		try {
-			AuthInfo authInfo = extractAuthInfo(oauth2User);
-			userService.patchCurrentUserInfo(authInfo.socialId(), authInfo.socialType(), request);
-			return ResponseEntity.ok(UserActionResponse.success("User profile patched successfully."));
-		} catch (IllegalArgumentException ex) {
-			return ResponseEntity.badRequest().body(UserActionResponse.fail(ex.getMessage()));
-		} catch (EntityNotFoundException ex) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(UserActionResponse.fail(ex.getMessage()));
-		}
+		AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+		userService.patchCurrentUserInfo(auth.socialId(), auth.socialType(), request);
+		return ResponseEntity.ok(UserActionResponse.success("User profile patched successfully."));
 	}
 
 	@DeleteMapping("/me")
 	public ResponseEntity<UserActionResponse> deleteMe(@AuthenticationPrincipal OAuth2User oauth2User) {
-		try {
-			AuthInfo authInfo = extractAuthInfo(oauth2User);
-			userService.deleteCurrentUser(authInfo.socialId(), authInfo.socialType());
-			return ResponseEntity.ok(UserActionResponse.success("User account deleted successfully."));
-		} catch (IllegalArgumentException ex) {
-			return ResponseEntity.badRequest().body(UserActionResponse.fail(ex.getMessage()));
-		} catch (EntityNotFoundException ex) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).body(UserActionResponse.fail(ex.getMessage()));
-		}
+		AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+		userService.deleteCurrentUser(auth.socialId(), auth.socialType());
+		return ResponseEntity.ok(UserActionResponse.success("User account deleted successfully."));
 	}
 
 	@PatchMapping("/me/fcm-token")
@@ -85,34 +65,8 @@ public class UserController {
 			@AuthenticationPrincipal OAuth2User oauth2User,
 			@RequestBody FcmTokenRequest request
 	) {
-		try {
-			AuthInfo authInfo = extractAuthInfo(oauth2User);
-			userService.updateCurrentUserFcmToken(authInfo.socialId(), authInfo.socialType(), request.fcmToken());
-			return ResponseEntity.noContent().build();
-		} catch (IllegalArgumentException ex) {
-			return ResponseEntity.badRequest().build();
-		} catch (EntityNotFoundException ex) {
-			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-		}
-	}
-
-	private AuthInfo extractAuthInfo(OAuth2User oauth2User) {
-		if (oauth2User == null) {
-			throw new IllegalArgumentException("Unauthenticated user.");
-		}
-		Map<String, Object> attributes = oauth2User.getAttributes();
-
-		String socialId = (String) attributes.get("socialId");
-		String socialTypeStr = (String) attributes.get("socialType");
-		if (socialId == null || socialId.isBlank() || socialTypeStr == null || socialTypeStr.isBlank()) {
-			throw new IllegalStateException("OAuth2 attributes are missing social info.");
-		}
-
-		SocialType socialType = SocialType.valueOf(socialTypeStr);
-		return new AuthInfo(socialId, socialType);
-	}
-
-	private record AuthInfo(String socialId, SocialType socialType) {
+		AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+		userService.updateCurrentUserFcmToken(auth.socialId(), auth.socialType(), request.fcmToken());
+		return ResponseEntity.noContent().build();
 	}
 }
-

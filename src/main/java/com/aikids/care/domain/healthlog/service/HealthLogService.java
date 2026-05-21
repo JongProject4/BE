@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -37,7 +36,7 @@ public class HealthLogService {
 
         return logs.stream()
                 .map(HealthLogResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 헬스 로그 수동 추가

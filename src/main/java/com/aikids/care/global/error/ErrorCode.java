@@ -16,6 +16,9 @@ public enum ErrorCode {
     // Common
     FORBIDDEN(HttpStatus.FORBIDDEN, "접근 권한이 없습니다."),
 
+    // User
+    USER_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 사용자를 찾을 수 없습니다."),
+
     // Child
     CHILD_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 아이 프로필을 찾을 수 없습니다."),
 

@@ -8,7 +8,8 @@ import com.aikids.care.domain.child.repository.ChildRepository;
 import com.aikids.care.domain.user.model.SocialType;
 import com.aikids.care.domain.user.model.User;
 import com.aikids.care.domain.user.model.UserRepository;
-import jakarta.persistence.EntityNotFoundException;
+import com.aikids.care.global.error.CustomException;
+import com.aikids.care.global.error.ErrorCode;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,15 +24,6 @@ public class ChildService {
 
 	@Transactional
 	public ChildResponse createChild(String socialId, SocialType socialType, CreateChildRequest request) {
-		if (socialId == null || socialId.isBlank()) {
-			throw new IllegalArgumentException("socialId must not be blank");
-		}
-		if (socialType == null) {
-			throw new IllegalArgumentException("socialType must not be null");
-		}
-		if (request == null) {
-			throw new IllegalArgumentException("request must not be null");
-		}
 		if (request.name() == null || request.name().trim().isBlank()) {
 			throw new IllegalArgumentException("name must not be blank");
 		}
@@ -42,10 +34,8 @@ public class ChildService {
 			throw new IllegalArgumentException("gender must not be null");
 		}
 
-		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
-				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+		User user = findUser(socialId, socialType);
 
-		// 인증된 보호자(User) 아래에 Child를 생성한다.
 		Child child = Child.builder()
 				.user(user)
 				.name(request.name().trim())
@@ -62,16 +52,7 @@ public class ChildService {
 
 	@Transactional(readOnly = true)
 	public List<ChildResponse> getChildren(String socialId, SocialType socialType) {
-		if (socialId == null || socialId.isBlank()) {
-			throw new IllegalArgumentException("socialId must not be blank");
-		}
-		if (socialType == null) {
-			throw new IllegalArgumentException("socialType must not be null");
-		}
-
-		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
-				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
-
+		User user = findUser(socialId, socialType);
 		return childRepository.findByUser_Id(user.getId())
 				.stream()
 				.map(ChildResponse::from)
@@ -80,69 +61,30 @@ public class ChildService {
 
 	@Transactional(readOnly = true)
 	public ChildResponse getChild(String socialId, SocialType socialType, Long childId) {
-		if (socialId == null || socialId.isBlank()) {
-			throw new IllegalArgumentException("socialId must not be blank");
-		}
-		if (socialType == null) {
-			throw new IllegalArgumentException("socialType must not be null");
-		}
-		if (childId == null) {
-			throw new IllegalArgumentException("childId must not be null");
-		}
-
-		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
-				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
-
+		User user = findUser(socialId, socialType);
 		Child child = childRepository.findByIdAndUser_Id(childId, user.getId())
-				.orElseThrow(() -> new EntityNotFoundException("Child not found. childId=" + childId));
-
+				.orElseThrow(() -> new CustomException(ErrorCode.CHILD_NOT_FOUND));
 		return ChildResponse.from(child);
 	}
 
 	@Transactional
 	public void deleteChild(String socialId, SocialType socialType, Long childId) {
-		if (socialId == null || socialId.isBlank()) {
-			throw new IllegalArgumentException("socialId must not be blank");
-		}
-		if (socialType == null) {
-			throw new IllegalArgumentException("socialType must not be null");
-		}
-		if (childId == null) {
-			throw new IllegalArgumentException("childId must not be null");
-		}
-
-		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
-				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
-
+		User user = findUser(socialId, socialType);
 		Child child = childRepository.findByIdAndUser_Id(childId, user.getId())
-				.orElseThrow(() -> new EntityNotFoundException("Child not found. childId=" + childId));
-
-		// 현재 인증 사용자가 소유한 child만 삭제한다.
+				.orElseThrow(() -> new CustomException(ErrorCode.CHILD_NOT_FOUND));
 		childRepository.delete(child);
 	}
 
 	@Transactional
 	public ChildResponse patchChild(String socialId, SocialType socialType, Long childId, PatchChildRequest request) {
-		if (socialId == null || socialId.isBlank()) {
-			throw new IllegalArgumentException("socialId must not be blank");
-		}
-		if (socialType == null) {
-			throw new IllegalArgumentException("socialType must not be null");
-		}
-		if (childId == null) {
-			throw new IllegalArgumentException("childId must not be null");
-		}
 		if (request == null || request.isEmpty()) {
 			throw new IllegalArgumentException("At least one field must be provided");
 		}
 
-		User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
-				.orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
-
+		User user = findUser(socialId, socialType);
 		Child child = childRepository.findByIdAndUser_Id(childId, user.getId())
-				.orElseThrow(() -> new EntityNotFoundException("Child not found. childId=" + childId));
+				.orElseThrow(() -> new CustomException(ErrorCode.CHILD_NOT_FOUND));
 
-		// PATCH는 전달된 필드만 부분 수정한다.
 		child.patchProfile(
 				request.name(),
 				request.birthdate(),
@@ -154,5 +96,10 @@ public class ChildService {
 		);
 
 		return ChildResponse.from(childRepository.save(child));
+	}
+
+	private User findUser(String socialId, SocialType socialType) {
+		return userRepository.findBySocialIdAndSocialType(socialId, socialType)
+				.orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 	}
 }
