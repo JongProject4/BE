@@ -8,8 +8,11 @@ import com.aikids.care.domain.chat.dto.ChatMessageResponse;
 import com.aikids.care.domain.chat.dto.ChatUpdateRequest;
 import com.aikids.care.domain.chat.dto.VoiceChatResponse;
 import com.aikids.care.domain.chat.service.ChatService;
+import com.aikids.care.domain.user.model.SocialType;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -22,6 +25,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/chats")
@@ -30,10 +34,13 @@ public class ChatController {
 
     private final ChatService chatService;
 
-    // 1. 새로운 AI 상담 세션 생성 (POST /api/chat)
+    // 1. 새로운 AI 상담 세션 생성 (POST /api/chats)
     @PostMapping
-    public ResponseEntity<ChatCreateResponse> createChat(@RequestBody ChatCreateRequest request) {
-        Long chatId = chatService.createChat(request);
+    public ResponseEntity<ChatCreateResponse> createChat(
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @RequestBody ChatCreateRequest request) {
+        AuthInfo auth = extractAuthInfo(oauth2User);
+        Long chatId = chatService.createChat(auth.socialId(), auth.socialType(), request);
         return ResponseEntity.ok(new ChatCreateResponse(chatId));
     }
 
@@ -55,8 +62,11 @@ public class ChatController {
 
     // 특정 아이(childId)의 상담 방 목록 가져오기 API
     @GetMapping("/rooms/list/{childId}")
-    public ResponseEntity<List<Long>> getChatRoomList(@PathVariable Long childId) {
-        List<Long> roomIds = chatService.getChatRoomList(childId);
+    public ResponseEntity<List<Long>> getChatRoomList(
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @PathVariable Long childId) {
+        AuthInfo auth = extractAuthInfo(oauth2User);
+        List<Long> roomIds = chatService.getChatRoomList(auth.socialId(), auth.socialType(), childId);
         return ResponseEntity.ok(roomIds);
     }
 
@@ -87,4 +97,19 @@ public class ChatController {
         chatService.deleteChat(chatId);
         return ResponseEntity.ok().build();
     }
+
+    private AuthInfo extractAuthInfo(OAuth2User oauth2User) {
+        if (oauth2User == null) {
+            throw new IllegalArgumentException("Unauthenticated user.");
+        }
+        Map<String, Object> attributes = oauth2User.getAttributes();
+        String socialId = (String) attributes.get("socialId");
+        String socialTypeStr = (String) attributes.get("socialType");
+        if (socialId == null || socialId.isBlank() || socialTypeStr == null || socialTypeStr.isBlank()) {
+            throw new IllegalStateException("OAuth2 attributes are missing social info.");
+        }
+        return new AuthInfo(socialId, SocialType.valueOf(socialTypeStr));
+    }
+
+    private record AuthInfo(String socialId, SocialType socialType) {}
 }

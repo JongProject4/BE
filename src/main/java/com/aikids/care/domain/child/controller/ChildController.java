@@ -123,9 +123,18 @@ public class ChildController {
 
 	// 특정 아이의 상담 방 목록 조회
 	@GetMapping("/{child_id}/chat")
-	public ResponseEntity<List<Long>> getChatRoomsByChild(@PathVariable("child_id") Long childId) {
-		List<Long> chatRoomIds = chatService.getChatRoomList(childId);
-		return ResponseEntity.ok(chatRoomIds);
+	public ResponseEntity<List<Long>> getChatRoomsByChild(
+			@AuthenticationPrincipal OAuth2User oauth2User,
+			@PathVariable("child_id") Long childId) {
+		try {
+			AuthInfo authInfo = extractAuthInfo(oauth2User);
+			List<Long> chatRoomIds = chatService.getChatRoomList(authInfo.socialId(), authInfo.socialType(), childId);
+			return ResponseEntity.ok(chatRoomIds);
+		} catch (IllegalArgumentException ex) {
+			return ResponseEntity.badRequest().build();
+		} catch (EntityNotFoundException ex) {
+			return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+		}
 	}
 
 	private record AuthInfo(String socialId, SocialType socialType) {

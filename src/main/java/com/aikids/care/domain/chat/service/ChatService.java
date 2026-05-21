@@ -10,9 +10,14 @@ import com.aikids.care.domain.chat.model.ChatDetail;
 import com.aikids.care.domain.chat.model.Role;
 import com.aikids.care.domain.chat.repository.ChatDetailRepository;
 import com.aikids.care.domain.chat.repository.ChatRepository;
+import com.aikids.care.domain.child.repository.ChildRepository;
+import com.aikids.care.domain.user.model.SocialType;
+import com.aikids.care.domain.user.model.User;
+import com.aikids.care.domain.user.model.UserRepository;
 import com.aikids.care.global.error.CustomException;
 import com.aikids.care.global.error.ErrorCode;
 import com.aikids.care.infra.stt.GoogleSttClient;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -37,9 +42,15 @@ public class ChatService {
     private final GeminiService geminiService;
     private final GoogleSttClient googleSttClient;
     private final TransactionTemplate transactionTemplate;
+    private final UserRepository userRepository;
+    private final ChildRepository childRepository;
 
     @Transactional
-    public Long createChat(ChatCreateRequest request) {
+    public Long createChat(String socialId, SocialType socialType, ChatCreateRequest request) {
+        User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+                .orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+        childRepository.findByIdAndUser_Id(request.getChildId(), user.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.FORBIDDEN));
         Chat chat = Chat.builder()
                 .childId(request.getChildId())
                 .build();
@@ -134,7 +145,11 @@ public class ChatService {
                 .collect(Collectors.toList());
     }
 
-    public List<Long> getChatRoomList(Long childId) {
+    public List<Long> getChatRoomList(String socialId, SocialType socialType, Long childId) {
+        User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+                .orElseThrow(() -> new EntityNotFoundException("User not found. socialId=" + socialId));
+        childRepository.findByIdAndUser_Id(childId, user.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.FORBIDDEN));
         return chatRepository.findByChildIdOrderByCreatedAtDesc(childId)
                 .stream()
                 .map(Chat::getId)
