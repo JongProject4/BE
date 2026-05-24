@@ -55,7 +55,7 @@ public class HospitalAlarmService {
                 .orElseThrow(() -> new CustomException(ErrorCode.HOSPITAL_ALARM_NOT_FOUND));
 
         hospitalAlarm.update(request.getHospitalName(), request.getVisitDate(),
-                request.getMemo(), null);
+                request.getMemo(), request.getIsActive());
 
         return HospitalAlarmResponse.from(hospitalAlarm);
     }

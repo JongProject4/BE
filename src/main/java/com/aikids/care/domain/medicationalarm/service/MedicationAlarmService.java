@@ -55,7 +55,7 @@ public class MedicationAlarmService {
                 .orElseThrow(() -> new CustomException(ErrorCode.MEDICATION_ALARM_NOT_FOUND));
 
         medicationAlarm.update(request.getMedicineName(), request.getDosage(),
-                request.getIntervalHour(), null);
+                request.getIntervalHour(), request.getIsActive());
 
         return MedicationAlarmResponse.from(medicationAlarm);
     }
