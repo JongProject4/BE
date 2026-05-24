@@ -16,6 +16,7 @@ import com.aikids.care.domain.user.model.User;
 import com.aikids.care.domain.user.model.UserRepository;
 import com.aikids.care.global.error.CustomException;
 import com.aikids.care.global.error.ErrorCode;
+import com.aikids.care.infra.gemini.GeminiApiClient;
 import com.aikids.care.infra.stt.GoogleSttClient;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -37,7 +38,7 @@ public class ChatService {
 
     private final ChatRepository chatRepository;
     private final ChatDetailRepository chatDetailRepository;
-    private final GeminiService geminiService;
+    private final GeminiApiClient geminiApiClient;
     private final GoogleSttClient googleSttClient;
     private final TransactionTemplate transactionTemplate;
     private final UserRepository userRepository;
@@ -86,7 +87,7 @@ public class ChatService {
             return null;
         });
 
-        String aiContent = geminiService.askQuestion(userContent, history);
+        String aiContent = geminiApiClient.ask(userContent, history);
 
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
@@ -106,7 +107,7 @@ public class ChatService {
         List<Map<String, String>> history = loadHistory(chatId);
         if (history.isEmpty()) return;
 
-        String summary = geminiService.summarize(history);
+        String summary = geminiApiClient.summarize(history);
 
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
