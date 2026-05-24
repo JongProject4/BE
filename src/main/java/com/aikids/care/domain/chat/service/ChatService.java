@@ -34,7 +34,8 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class ChatService {
 
-    private static final int MAX_HISTORY_MESSAGES = 40; // 최근 20턴
+    private static final int MAX_HISTORY_MESSAGES = 20; // 최근 10턴
+    private static final int INTERIM_SUMMARY_TRIGGER = 30; // 이 수 이상이면 중간 요약 생성
 
     private final ChatRepository chatRepository;
     private final ChatDetailRepository chatDetailRepository;
@@ -72,8 +73,9 @@ public class ChatService {
 
     // LLM 호출 구간에 DB 커넥션을 점유하지 않도록 TransactionTemplate으로 트랜잭션 분리
     private String sendTextMessage(Long chatId, String userContent, String imageUrl) {
-        // Gemini 호출 전 기존 대화 히스토리 조회 (현재 메시지 제외)
-        List<Map<String, String>> history = loadHistory(chatId);
+        List<ChatDetail> allDetails = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
+        String interimSummary = generateInterimSummaryIfNeeded(chatId, allDetails);
+        List<Map<String, String>> history = toHistory(allDetails);
 
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
@@ -87,7 +89,7 @@ public class ChatService {
             return null;
         });
 
-        String aiContent = geminiApiClient.ask(userContent, history);
+        String aiContent = geminiApiClient.ask(userContent, history, interimSummary);
 
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
@@ -103,16 +105,47 @@ public class ChatService {
         return aiContent;
     }
 
+    // 히스토리가 INTERIM_SUMMARY_TRIGGER 이상이면 오래된 구간을 요약하고 DB에 저장
+    private String generateInterimSummaryIfNeeded(Long chatId, List<ChatDetail> allDetails) {
+        if (allDetails.size() < INTERIM_SUMMARY_TRIGGER) {
+            return chatRepository.findById(chatId)
+                    .map(Chat::getInterimSummary)
+                    .orElse(null);
+        }
+
+        // 오래된 절반을 요약 대상으로, 최근 절반은 슬라이딩 윈도우로 유지
+        int splitAt = allDetails.size() - MAX_HISTORY_MESSAGES;
+        List<Map<String, String>> oldMessages = allDetails.subList(0, splitAt).stream()
+                .map(d -> Map.of("role", toGeminiRole(d.getRole()), "content", d.getContent()))
+                .toList();
+
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
+        String previousSummary = chat.getInterimSummary();
+        String newSummary = geminiApiClient.summarize(oldMessages, previousSummary);
+
+        transactionTemplate.execute(status -> {
+            Chat c = chatRepository.findById(chatId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
+            c.updateInterimSummary(newSummary);
+            return null;
+        });
+
+        return newSummary;
+    }
+
     public void closeChat(Long chatId) {
         List<Map<String, String>> history = loadHistory(chatId);
         if (history.isEmpty()) return;
 
-        String summary = geminiApiClient.summarize(history);
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
+        String summary = geminiApiClient.summarize(history, chat.getInterimSummary());
 
         transactionTemplate.execute(status -> {
-            Chat chat = chatRepository.findById(chatId)
+            Chat c = chatRepository.findById(chatId)
                     .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
-            chat.updateSummary(summary);
+            c.updateSummary(summary);
             return null;
         });
     }
@@ -157,6 +190,10 @@ public class ChatService {
 
     private List<Map<String, String>> loadHistory(Long chatId) {
         List<ChatDetail> details = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
+        return toHistory(details);
+    }
+
+    private List<Map<String, String>> toHistory(List<ChatDetail> details) {
         List<ChatDetail> recent = details.size() > MAX_HISTORY_MESSAGES
                 ? details.subList(details.size() - MAX_HISTORY_MESSAGES, details.size())
                 : details;
