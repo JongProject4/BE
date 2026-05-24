@@ -40,9 +40,9 @@ public class GeminiApiClient {
         this.vectorStore = vectorStore;
     }
 
-    public String ask(String userMessage, List<Map<String, String>> history) {
+    public String ask(String userMessage, List<Map<String, String>> history, String interimSummary) {
         List<Message> messages = new ArrayList<>();
-        messages.add(new SystemMessage(buildSystemPrompt(userMessage)));
+        messages.add(new SystemMessage(buildSystemPrompt(userMessage, interimSummary)));
         for (Map<String, String> turn : history) {
             String role = turn.get("role");
             String content = turn.get("content");
@@ -56,36 +56,44 @@ public class GeminiApiClient {
         return call(new Prompt(messages));
     }
 
-    public String summarize(List<Map<String, String>> history) {
+    public String summarize(List<Map<String, String>> history, String previousSummary) {
         String conversationText = history.stream()
                 .map(m -> m.get("role") + ": " + m.get("content"))
                 .reduce("", (a, b) -> a + "\n" + b);
 
+        String promptBody = (previousSummary != null && !previousSummary.isBlank())
+                ? SUMMARY_PROMPT + "\n\n이전 요약:\n" + previousSummary + "\n\n추가 대화:\n" + conversationText
+                : SUMMARY_PROMPT + "\n\n" + conversationText;
+
         List<Message> messages = List.of(
                 new SystemMessage(SYSTEM_PROMPT),
-                new UserMessage(SUMMARY_PROMPT + "\n\n" + conversationText)
+                new UserMessage(promptBody)
         );
         return call(new Prompt(messages));
     }
 
-    // 유사 의료 가이드라인 문서를 검색해 시스템 프롬프트에 컨텍스트로 추가
-    // Chroma 장애 시 기본 프롬프트로 폴백
-    private String buildSystemPrompt(String userMessage) {
+    private String buildSystemPrompt(String userMessage, String interimSummary) {
+        String base = SYSTEM_PROMPT;
+
+        if (interimSummary != null && !interimSummary.isBlank()) {
+            base = base + "\n\n[이전 대화 요약]\n" + interimSummary;
+        }
+
         if (vectorStore == null) {
-            return SYSTEM_PROMPT;
+            return base;
         }
         try {
             List<Document> docs = vectorStore.similaritySearch(userMessage);
             if (docs.isEmpty()) {
-                return SYSTEM_PROMPT;
+                return base;
             }
             String ragContext = docs.stream()
                     .map(Document::getText)
                     .collect(Collectors.joining("\n\n"));
-            return SYSTEM_PROMPT + "\n\n참고 의료 가이드라인:\n" + ragContext;
+            return base + "\n\n참고 의료 가이드라인:\n" + ragContext;
         } catch (Exception e) {
             log.warn("[GeminiApiClient] RAG 검색 실패, 기본 프롬프트로 폴백. 원인: {}", e.getMessage());
-            return SYSTEM_PROMPT;
+            return base;
         }
     }
 

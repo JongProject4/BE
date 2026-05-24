@@ -32,6 +32,9 @@ public class Chat {
     @Column(columnDefinition = "TEXT")
     private String summary;
 
+    @Column(name = "interim_summary", columnDefinition = "TEXT")
+    private String interimSummary;
+
     @Column(name = "created_at", columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private LocalDateTime createdAt;
 
@@ -54,5 +57,9 @@ public class Chat {
 
     public void updateSummary(String summary) {
         this.summary = summary;
+    }
+
+    public void updateInterimSummary(String interimSummary) {
+        this.interimSummary = interimSummary;
     }
 }
