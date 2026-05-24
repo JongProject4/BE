@@ -69,18 +69,24 @@ public class GeminiApiClient {
     }
 
     // 유사 의료 가이드라인 문서를 검색해 시스템 프롬프트에 컨텍스트로 추가
+    // Chroma 장애 시 기본 프롬프트로 폴백
     private String buildSystemPrompt(String userMessage) {
         if (vectorStore == null) {
             return SYSTEM_PROMPT;
         }
-        List<Document> docs = vectorStore.similaritySearch(userMessage);
-        if (docs.isEmpty()) {
+        try {
+            List<Document> docs = vectorStore.similaritySearch(userMessage);
+            if (docs.isEmpty()) {
+                return SYSTEM_PROMPT;
+            }
+            String ragContext = docs.stream()
+                    .map(Document::getText)
+                    .collect(Collectors.joining("\n\n"));
+            return SYSTEM_PROMPT + "\n\n참고 의료 가이드라인:\n" + ragContext;
+        } catch (Exception e) {
+            log.warn("[GeminiApiClient] RAG 검색 실패, 기본 프롬프트로 폴백. 원인: {}", e.getMessage());
             return SYSTEM_PROMPT;
         }
-        String ragContext = docs.stream()
-                .map(Document::getText)
-                .collect(Collectors.joining("\n\n"));
-        return SYSTEM_PROMPT + "\n\n참고 의료 가이드라인:\n" + ragContext;
     }
 
     private String call(Prompt prompt) {
