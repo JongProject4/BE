@@ -9,10 +9,13 @@ import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.document.Document;
+import org.springframework.ai.vectorstore.VectorStore;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class GeminiApiClient {
@@ -29,14 +32,17 @@ public class GeminiApiClient {
             "아이의 증상, 상태, 조치 내용을 중심으로 3문장 이내로 요약해주세요.";
 
     private final ChatModel chatModel;
+    // local 프로파일에서는 Chroma가 없으므로 null 허용
+    private final VectorStore vectorStore;
 
-    public GeminiApiClient(ChatModel chatModel) {
+    public GeminiApiClient(ChatModel chatModel, VectorStore vectorStore) {
         this.chatModel = chatModel;
+        this.vectorStore = vectorStore;
     }
 
     public String ask(String userMessage, List<Map<String, String>> history) {
         List<Message> messages = new ArrayList<>();
-        messages.add(new SystemMessage(SYSTEM_PROMPT));
+        messages.add(new SystemMessage(buildSystemPrompt(userMessage)));
         for (Map<String, String> turn : history) {
             String role = turn.get("role");
             String content = turn.get("content");
@@ -60,6 +66,21 @@ public class GeminiApiClient {
                 new UserMessage(SUMMARY_PROMPT + "\n\n" + conversationText)
         );
         return call(new Prompt(messages));
+    }
+
+    // 유사 의료 가이드라인 문서를 검색해 시스템 프롬프트에 컨텍스트로 추가
+    private String buildSystemPrompt(String userMessage) {
+        if (vectorStore == null) {
+            return SYSTEM_PROMPT;
+        }
+        List<Document> docs = vectorStore.similaritySearch(userMessage);
+        if (docs.isEmpty()) {
+            return SYSTEM_PROMPT;
+        }
+        String ragContext = docs.stream()
+                .map(Document::getText)
+                .collect(Collectors.joining("\n\n"));
+        return SYSTEM_PROMPT + "\n\n참고 의료 가이드라인:\n" + ragContext;
     }
 
     private String call(Prompt prompt) {
