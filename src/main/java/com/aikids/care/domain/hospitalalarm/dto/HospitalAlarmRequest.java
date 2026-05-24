@@ -18,4 +18,6 @@ public class HospitalAlarmRequest {
     private LocalDateTime visitDate;
 
     private String memo;
+
+    private Boolean isActive;
 }
