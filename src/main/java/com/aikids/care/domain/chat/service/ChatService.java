@@ -4,6 +4,7 @@ import com.aikids.care.domain.chat.dto.ChatCreateRequest;
 import com.aikids.care.domain.chat.dto.ChatDetailResponse;
 import com.aikids.care.domain.chat.dto.ChatMessageRequest;
 import com.aikids.care.domain.chat.dto.ChatUpdateRequest;
+import com.aikids.care.domain.chat.dto.ChatStreamResponse;
 import com.aikids.care.domain.chat.dto.VoiceChatResponse;
 import com.aikids.care.domain.chat.model.Chat;
 import com.aikids.care.domain.chat.model.ChatDetail;
@@ -16,6 +17,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
+import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
+import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
 import java.util.List;
@@ -28,8 +32,10 @@ public class ChatService {
 
     private final ChatRepository chatRepository;
     private final ChatDetailRepository chatDetailRepository;
+    private final ChatMessagePersistence chatMessagePersistence;
     private final GeminiService geminiService;
     private final GoogleSttClient googleSttClient;
+    private final VoiceChatStreamPipeline voiceChatStreamPipeline;
 
     // 1. 새로운 상담 세션(빈 방) 생성
     @Transactional
@@ -48,13 +54,51 @@ public class ChatService {
 
     @Transactional
     public VoiceChatResponse sendVoiceMessage(Long chatId, MultipartFile audioFile) throws IOException {
-        String userQuestion = googleSttClient.transcribe(audioFile.getBytes());
+        String userQuestion = googleSttClient.transcribe(
+                audioFile.getBytes(),
+                audioFile.getContentType(),
+                audioFile.getOriginalFilename()
+        );
         log.info("[STT] chatId={}, transcript='{}'", chatId, abbreviate(userQuestion, 200));
         if (userQuestion.isBlank()) {
             return new VoiceChatResponse("", "음성을 인식하지 못했습니다. 다시 말해 주세요.");
         }
         String aiAnswer = sendTextMessage(chatId, userQuestion, null);
         return new VoiceChatResponse(userQuestion, aiAnswer);
+    }
+
+    /**
+     * 음성 상담 SSE 스트리밍: STT → 짧은 답변 텍스트/오디오 청크 → 종료 시 DB 저장.
+     */
+    public Flux<ChatStreamResponse> handleVoiceChatStream(Long chatId, MultipartFile voiceFile) {
+        return Mono.fromCallable(() -> googleSttClient.transcribe(
+                        voiceFile.getBytes(),
+                        voiceFile.getContentType(),
+                        voiceFile.getOriginalFilename()))
+                .subscribeOn(Schedulers.boundedElastic())
+                .flatMapMany(transcript -> buildVoiceStream(chatId, transcript))
+                .onErrorResume(IOException.class, e -> {
+                    log.error("[VoiceStream] STT failed chatId={}", chatId, e);
+                    return Flux.just(
+                            ChatStreamResponse.ofChunk("음성 인식에 실패했습니다. 다시 시도해 주세요.", ""),
+                            ChatStreamResponse.ofFinal()
+                    );
+                });
+    }
+
+    private Flux<ChatStreamResponse> buildVoiceStream(Long chatId, String transcript) {
+        log.info("[VoiceStream] chatId={}, transcript='{}'", chatId, abbreviate(transcript, 200));
+
+        if (transcript.isBlank()) {
+            return Flux.just(
+                    ChatStreamResponse.ofChunk("음성을 인식하지 못했습니다. 다시 말해 주세요.", ""),
+                    ChatStreamResponse.ofFinal()
+            );
+        }
+
+        return Mono.fromRunnable(() -> chatMessagePersistence.saveUserTranscript(chatId, transcript))
+                .subscribeOn(Schedulers.boundedElastic())
+                .thenMany(voiceChatStreamPipeline.stream(chatId, transcript));
     }
 
     private String sendTextMessage(Long chatId, String userContent, String imageUrl) {
