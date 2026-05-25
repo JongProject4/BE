@@ -16,6 +16,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.SecurityFilterChain;
 
+import jakarta.servlet.DispatcherType;
 import java.util.List;
 
 @Configuration
@@ -51,6 +52,8 @@ public class SecurityConfig {
 						new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED),
 						PathPatternRequestMatcher.withDefaults().matcher("/api/**")))
 				.authorizeHttpRequests(auth -> auth
+						// SSE 등 비동기 디스패치 시 SecurityContext가 없어 Access Denied 나는 것 방지
+						.dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll()
 						.requestMatchers("/api/**").authenticated()
 						.anyRequest().permitAll()
 				)
