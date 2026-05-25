@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -24,18 +23,18 @@ public class MedicationAlarmService {
     private final ChildRepository childRepository;
 
     // 복약 알림 목록 조회
-    public List<MedicationAlarmResponse> getMedicationAlarms(Long childId) {
-        validateChild(childId);
+    public List<MedicationAlarmResponse> getMedicationAlarms(Long childId, Long userId) {
+        validateChild(childId, userId);
         return medicationAlarmRepository.findByChild_Id(childId)
                 .stream()
                 .map(MedicationAlarmResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 복약 알림 등록
     @Transactional
-    public MedicationAlarmResponse createMedicationAlarm(Long childId, MedicationAlarmRequest request) {
-        Child child = validateChild(childId);
+    public MedicationAlarmResponse createMedicationAlarm(Long childId, MedicationAlarmRequest request, Long userId) {
+        Child child = validateChild(childId, userId);
 
         MedicationAlarm medicationAlarm = MedicationAlarm.builder()
                 .child(child)
@@ -49,31 +48,31 @@ public class MedicationAlarmService {
 
     // 복약 알림 수정
     @Transactional
-    public MedicationAlarmResponse updateMedicationAlarm(Long childId, Long alarmId, MedicationAlarmRequest request) {
-        validateChild(childId);
+    public MedicationAlarmResponse updateMedicationAlarm(Long childId, Long alarmId, MedicationAlarmRequest request, Long userId) {
+        validateChild(childId, userId);
 
-        MedicationAlarm medicationAlarm = medicationAlarmRepository.findById(alarmId)
+        MedicationAlarm medicationAlarm = medicationAlarmRepository.findByIdAndChild_Id(alarmId, childId)
                 .orElseThrow(() -> new CustomException(ErrorCode.MEDICATION_ALARM_NOT_FOUND));
 
         medicationAlarm.update(request.getMedicineName(), request.getDosage(),
-                request.getIntervalHour(), null);
+                request.getIntervalHour(), request.getIsActive());
 
         return MedicationAlarmResponse.from(medicationAlarm);
     }
 
     // 복약 알림 삭제
     @Transactional
-    public void deleteMedicationAlarm(Long childId, Long alarmId) {
-        validateChild(childId);
+    public void deleteMedicationAlarm(Long childId, Long alarmId, Long userId) {
+        validateChild(childId, userId);
 
-        MedicationAlarm medicationAlarm = medicationAlarmRepository.findById(alarmId)
+        MedicationAlarm medicationAlarm = medicationAlarmRepository.findByIdAndChild_Id(alarmId, childId)
                 .orElseThrow(() -> new CustomException(ErrorCode.MEDICATION_ALARM_NOT_FOUND));
 
         medicationAlarmRepository.delete(medicationAlarm);
     }
 
-    private Child validateChild(Long childId) {
-        return childRepository.findById(childId)
+    private Child validateChild(Long childId, Long userId) {
+        return childRepository.findByIdAndUser_Id(childId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CHILD_NOT_FOUND));
     }
 }

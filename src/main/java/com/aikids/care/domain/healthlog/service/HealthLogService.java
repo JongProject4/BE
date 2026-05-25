@@ -14,7 +14,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -25,8 +24,8 @@ public class HealthLogService {
     private final ChildRepository childRepository;
 
     // 헬스 로그 타임라인 조회
-    public List<HealthLogResponse> getHealthLogs(Long childId, LogType logType) {
-        validateChild(childId);
+    public List<HealthLogResponse> getHealthLogs(Long childId, LogType logType, Long userId) {
+        validateChild(childId, userId);
 
         List<HealthLog> logs;
         if (logType == null) {
@@ -37,13 +36,13 @@ public class HealthLogService {
 
         return logs.stream()
                 .map(HealthLogResponse::from)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     // 헬스 로그 수동 추가
     @Transactional
-    public HealthLogResponse createHealthLog(Long childId, HealthLogRequest request) {
-        Child  child = validateChild(childId);
+    public HealthLogResponse createHealthLog(Long childId, HealthLogRequest request, Long userId) {
+        Child child = validateChild(childId, userId);
 
         HealthLog healthLog = HealthLog.builder()
                 .child(child)
@@ -55,8 +54,8 @@ public class HealthLogService {
         return HealthLogResponse.from(healthLogRepository.save(healthLog));
     }
 
-    private Child validateChild(Long childId) {
-        return childRepository.findById(childId)
+    private Child validateChild(Long childId, Long userId) {
+        return childRepository.findByIdAndUser_Id(childId, userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CHILD_NOT_FOUND));
     }
 }

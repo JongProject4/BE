@@ -17,4 +17,6 @@ public class MedicationAlarmRequest {
 
     @NotNull(message = "복용 간격은 필수입니다.")
     private Integer intervalHour;
+
+    private Boolean isActive;
 }

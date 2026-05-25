@@ -7,6 +7,7 @@ import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.crypto.SecretKey;
@@ -44,7 +45,7 @@ public class JwtTokenProvider {
 		return trimmed.getBytes(StandardCharsets.UTF_8);
 	}
 
-	public String createAccessToken(String socialId, String socialType, String name) {
+	public String createAccessToken(String socialId, String socialType, Long userId, String name) {
 		Date now = new Date();
 		Date expiry = new Date(now.getTime() + properties.expirationMs());
 		return Jwts.builder()
@@ -53,6 +54,7 @@ public class JwtTokenProvider {
 				.expiration(expiry)
 				.claim("socialId", socialId)
 				.claim("socialType", socialType)
+				.claim("userId", userId)
 				.claim("name", name == null ? "" : name)
 				.signWith(secretKey)
 				.compact();
@@ -87,11 +89,15 @@ public class JwtTokenProvider {
 			throw new IllegalArgumentException("JWT claims are missing required social information");
 		}
 
-		Map<String, Object> attributes = Map.of(
-				"socialId", socialId,
-				"socialType", socialType,
-				"name", name == null ? "" : name
-		);
+		Long userId = claims.get("userId", Long.class);
+
+		Map<String, Object> attributes = new HashMap<>();
+		attributes.put("socialId", socialId);
+		attributes.put("socialType", socialType);
+		attributes.put("name", name == null ? "" : name);
+		if (userId != null) {
+			attributes.put("userId", userId);
+		}
 		OAuth2User oauth2User = new DefaultOAuth2User(
 				List.of(new SimpleGrantedAuthority("ROLE_USER")),
 				attributes,
