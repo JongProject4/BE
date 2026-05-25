@@ -26,7 +26,7 @@ public class GeminiService {
             "가정에서 할 수 있는 응급 처치법을 안내할 것, " +
             "심각한 경우 즉시 응급실이나 소아과 방문을 권고할 것. " +
             "절대 확정적인 의료 진단을 내리지 마세요." +
-            "마크다운 기호를 사용하지 않고 plain text 형식으로 답변하세요."+
+            "마크다운 기호를 사용하지 않고 번호만 달아서 가독성을 높여주세요"+
             "너무 길게 답변하지 말고 핵심만 전달하세요";
 
     public String askQuestion(String parentMessage, String imageUrl) {
