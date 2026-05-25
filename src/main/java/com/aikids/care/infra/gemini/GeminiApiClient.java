@@ -10,7 +10,6 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.document.Document;
-import org.springframework.ai.vectorstore.VectorStore;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,12 +31,11 @@ public class GeminiApiClient {
             "아이의 증상, 상태, 조치 내용을 중심으로 3문장 이내로 요약해주세요.";
 
     private final ChatModel chatModel;
-    // local 프로파일에서는 Chroma가 없으므로 null 허용
-    private final VectorStore vectorStore;
+    private final RagSearchService ragSearchService;
 
-    public GeminiApiClient(ChatModel chatModel, VectorStore vectorStore) {
+    public GeminiApiClient(ChatModel chatModel, RagSearchService ragSearchService) {
         this.chatModel = chatModel;
-        this.vectorStore = vectorStore;
+        this.ragSearchService = ragSearchService;
     }
 
     public String ask(String userMessage, List<Map<String, String>> history, String interimSummary) {
@@ -79,22 +77,17 @@ public class GeminiApiClient {
             base = base + "\n\n[이전 대화 요약]\n" + interimSummary;
         }
 
-        if (vectorStore == null) {
+        if (ragSearchService == null) {
             return base;
         }
-        try {
-            List<Document> docs = vectorStore.similaritySearch(userMessage);
-            if (docs.isEmpty()) {
-                return base;
-            }
-            String ragContext = docs.stream()
-                    .map(Document::getText)
-                    .collect(Collectors.joining("\n\n"));
-            return base + "\n\n참고 의료 가이드라인:\n" + ragContext;
-        } catch (Exception e) {
-            log.warn("[GeminiApiClient] RAG 검색 실패, 기본 프롬프트로 폴백. 원인: {}", e.getMessage());
+        List<Document> docs = ragSearchService.search(userMessage);
+        if (docs.isEmpty()) {
             return base;
         }
+        String ragContext = docs.stream()
+                .map(Document::getText)
+                .collect(Collectors.joining("\n\n"));
+        return base + "\n\n참고 의료 가이드라인:\n" + ragContext;
     }
 
     private String call(Prompt prompt) {
