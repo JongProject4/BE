@@ -55,6 +55,13 @@ public class Chat {
         this.riskLevel = riskLevel;
     }
 
+    // AI 분석 결과를 DB에 반영하는 메서드
+    public void updateAnalysis(Category category, RiskLevel riskLevel) {
+        this.category = category;
+        this.riskLevel = riskLevel;
+    }
+
+
     public void updateSummary(String summary) {
         this.summary = summary;
     }
