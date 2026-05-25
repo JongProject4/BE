@@ -29,6 +29,12 @@ public class Chat {
     @Column(nullable = false)
     private RiskLevel riskLevel;
 
+    @Column(columnDefinition = "TEXT")
+    private String summary;
+
+    @Column(name = "interim_summary", columnDefinition = "TEXT")
+    private String interimSummary;
+
     @Column(name = "created_at", columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private LocalDateTime createdAt;
 
@@ -44,9 +50,16 @@ public class Chat {
         this.createdAt = LocalDateTime.now();
     }
 
-    // AI 판독 결과 업데이트 메서드 (PATCH API용)
     public void updateResult(Category category, RiskLevel riskLevel) {
         this.category = category;
         this.riskLevel = riskLevel;
+    }
+
+    public void updateSummary(String summary) {
+        this.summary = summary;
+    }
+
+    public void updateInterimSummary(String interimSummary) {
+        this.interimSummary = interimSummary;
     }
 }

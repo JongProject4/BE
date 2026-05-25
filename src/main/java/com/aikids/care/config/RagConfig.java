@@ -12,6 +12,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.context.annotation.Profile;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -23,6 +24,7 @@ import java.util.List;
 import java.util.Map;
 
 @Configuration
+@Profile("!local")
 public class RagConfig {
 
     @Value("${spring.ai.google.genai.api-key}")

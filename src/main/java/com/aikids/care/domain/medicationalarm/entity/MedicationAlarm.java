@@ -21,12 +21,13 @@ public class MedicationAlarm {
     @JoinColumn(name = "child_id", nullable = false)
     private Child child;
 
-    @Column(name = "medicine_name")
+    @Column(name = "medicine_name", nullable = false)
     private String medicineName;
 
+    @Column(nullable = false)
     private String dosage;
 
-    @Column(name = "interval_hour")
+    @Column(name = "interval_hour", nullable = false)
     private Integer intervalHour;
 
     @Column(name = "is_active", nullable = false)

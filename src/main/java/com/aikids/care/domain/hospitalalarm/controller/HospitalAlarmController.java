@@ -1,8 +1,8 @@
-package com.aikids.care.domain.medicationalarm.controller;
+package com.aikids.care.domain.hospitalalarm.controller;
 
-import com.aikids.care.domain.medicationalarm.dto.MedicationAlarmRequest;
-import com.aikids.care.domain.medicationalarm.dto.MedicationAlarmResponse;
-import com.aikids.care.domain.medicationalarm.service.MedicationAlarmService;
+import com.aikids.care.domain.hospitalalarm.dto.HospitalAlarmRequest;
+import com.aikids.care.domain.hospitalalarm.dto.HospitalAlarmResponse;
+import com.aikids.care.domain.hospitalalarm.service.HospitalAlarmService;
 import com.aikids.care.global.security.OAuth2Utils;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,52 +15,52 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/children/{childId}/medication-alarms")
+@RequestMapping("/api/children/{childId}/hospital-alarms")
 @RequiredArgsConstructor
-public class MedicationAlarmController {
+public class HospitalAlarmController {
 
-    private final MedicationAlarmService medicationAlarmService;
+    private final HospitalAlarmService hospitalAlarmService;
 
     @GetMapping
-    public ResponseEntity<List<MedicationAlarmResponse>> getMedicationAlarms(
+    public ResponseEntity<List<HospitalAlarmResponse>> getHospitalAlarms(
             @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long childId
     ) {
         Long userId = OAuth2Utils.extractUserId(oauth2User);
-        return ResponseEntity.ok(medicationAlarmService.getMedicationAlarms(childId, userId));
+        return ResponseEntity.ok(hospitalAlarmService.getHospitalAlarms(childId, userId));
     }
 
     @PostMapping
-    public ResponseEntity<MedicationAlarmResponse> createMedicationAlarm(
+    public ResponseEntity<HospitalAlarmResponse> createHospitalAlarm(
             @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long childId,
-            @Valid @RequestBody MedicationAlarmRequest request
+            @Valid @RequestBody HospitalAlarmRequest request
     ) {
         Long userId = OAuth2Utils.extractUserId(oauth2User);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
-                .body(medicationAlarmService.createMedicationAlarm(childId, request, userId));
+                .body(hospitalAlarmService.createHospitalAlarm(childId, request, userId));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<MedicationAlarmResponse> updateMedicationAlarm(
+    public ResponseEntity<HospitalAlarmResponse> updateHospitalAlarm(
             @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long childId,
             @PathVariable Long id,
-            @Valid @RequestBody MedicationAlarmRequest request
+            @Valid @RequestBody HospitalAlarmRequest request
     ) {
         Long userId = OAuth2Utils.extractUserId(oauth2User);
-        return ResponseEntity.ok(medicationAlarmService.updateMedicationAlarm(childId, id, request, userId));
+        return ResponseEntity.ok(hospitalAlarmService.updateHospitalAlarm(childId, id, request, userId));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteMedicationAlarm(
+    public ResponseEntity<Void> deleteHospitalAlarm(
             @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long childId,
             @PathVariable Long id
     ) {
         Long userId = OAuth2Utils.extractUserId(oauth2User);
-        medicationAlarmService.deleteMedicationAlarm(childId, id, userId);
+        hospitalAlarmService.deleteHospitalAlarm(childId, id, userId);
         return ResponseEntity.noContent().build();
     }
 

@@ -9,11 +9,15 @@ import com.aikids.care.domain.chat.dto.ChatUpdateRequest;
 import com.aikids.care.domain.chat.dto.ChatStreamResponse;
 import com.aikids.care.domain.chat.dto.VoiceChatResponse;
 import com.aikids.care.domain.chat.service.ChatService;
+import com.aikids.care.global.security.OAuth2Utils;
+import com.aikids.care.global.security.OAuth2Utils.AuthInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -37,14 +41,15 @@ public class ChatController {
 
     private final ChatService chatService;
 
-    // 1. 새로운 AI 상담 세션 생성 (POST /api/chat)
     @PostMapping
-    public ResponseEntity<ChatCreateResponse> createChat(@RequestBody ChatCreateRequest request) {
-        Long chatId = chatService.createChat(request);
+    public ResponseEntity<ChatCreateResponse> createChat(
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @RequestBody ChatCreateRequest request) {
+        AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+        Long chatId = chatService.createChat(auth.socialId(), auth.socialType(), request);
         return ResponseEntity.ok(new ChatCreateResponse(chatId));
     }
 
-    // 2. 부모 메시지 전송 및 AI 답변 반환 (POST /api/chat/{chat_id}/messages)
     @PostMapping("/{chatId}/messages")
     public ResponseEntity<ChatMessageResponse> sendMessage(@PathVariable Long chatId,
                                                            @RequestBody ChatMessageRequest request) {
@@ -86,28 +91,31 @@ public class ChatController {
         }
     }
 
-    // 특정 아이(childId)의 상담 방 목록 가져오기 API
     @GetMapping("/rooms/list/{childId}")
-    public ResponseEntity<List<Long>> getChatRoomList(@PathVariable Long childId) {
-        List<Long> roomIds = chatService.getChatRoomList(childId);
-        return ResponseEntity.ok(roomIds);
+    public ResponseEntity<List<Long>> getChatRoomList(
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @PathVariable Long childId) {
+        AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+        return ResponseEntity.ok(chatService.getChatRoomList(auth.socialId(), auth.socialType(), childId));
     }
 
-    // 3. 상담 세션 분석 결과 업데이트 (PATCH /api/chat/{chat_id})
     @PatchMapping("/{chatId}")
     public ResponseEntity<Void> updateChatResult(@PathVariable Long chatId, @RequestBody ChatUpdateRequest request) {
         chatService.updateChatResult(chatId, request);
         return ResponseEntity.ok().build();
     }
 
-    // 4. 특정 상담 세션의 모든 대화 내용 조회 (GET /api/chat/{chat_id}/messages)
     @GetMapping("/{chatId}/messages")
     public ResponseEntity<List<ChatDetailResponse>> getChatHistory(@PathVariable Long chatId) {
-        List<ChatDetailResponse> history = chatService.getChatHistory(chatId);
-        return ResponseEntity.ok(history);
+        return ResponseEntity.ok(chatService.getChatHistory(chatId));
     }
 
-    // 5. 상담 세션 삭제 (DELETE /api/chat/{chat_id})
+    @PostMapping("/{chatId}/close")
+    public ResponseEntity<Void> closeChat(@PathVariable Long chatId) {
+        chatService.closeChat(chatId);
+        return ResponseEntity.ok().build();
+    }
+
     @DeleteMapping("/{chatId}")
     public ResponseEntity<Void> deleteChat(@PathVariable Long chatId) {
         chatService.deleteChat(chatId);

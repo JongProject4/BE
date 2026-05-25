@@ -44,12 +44,14 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 		String socialId = (String) attrs.get("socialId");
 		String socialTypeStr = (String) attrs.get("socialType");
 		String name = (String) attrs.get("name");
-		if (!StringUtils.hasText(socialId) || !StringUtils.hasText(socialTypeStr)) {
+		Object userIdObj = attrs.get("userId");
+		Long userId = userIdObj instanceof Number n ? n.longValue() : null;
+		if (!StringUtils.hasText(socialId) || !StringUtils.hasText(socialTypeStr) || userId == null) {
 			response.sendError(HttpStatus.INTERNAL_SERVER_ERROR.value(), "OAuth2 attributes are missing social info.");
 			return;
 		}
 
-		String jwt = jwtTokenProvider.createAccessToken(socialId, socialTypeStr, name);
+		String jwt = jwtTokenProvider.createAccessToken(socialId, socialTypeStr, userId, name);
 
 		String redirectBase = oauth2FrontendProperties.frontendRedirectUri();
 		if (!StringUtils.hasText(redirectBase)) {

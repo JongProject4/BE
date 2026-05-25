@@ -39,6 +39,10 @@ dependencies {
 	implementation "org.springframework.ai:spring-ai-starter-model-google-genai"
 	implementation "org.springframework.ai:spring-ai-starter-vector-store-chroma"
 
+	// Cache
+	implementation 'org.springframework.boot:spring-boot-starter-cache'
+	implementation 'com.github.ben-manes.caffeine:caffeine'
+
 	// Spring Boot Core
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
