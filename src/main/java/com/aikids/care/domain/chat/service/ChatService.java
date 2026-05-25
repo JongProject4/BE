@@ -1,14 +1,7 @@
 package com.aikids.care.domain.chat.service;
 
-import com.aikids.care.domain.chat.dto.ChatCreateRequest;
-import com.aikids.care.domain.chat.dto.ChatDetailResponse;
-import com.aikids.care.domain.chat.dto.ChatMessageRequest;
-import com.aikids.care.domain.chat.dto.ChatUpdateRequest;
-import com.aikids.care.domain.chat.dto.ChatStreamResponse;
-import com.aikids.care.domain.chat.dto.VoiceChatResponse;
-import com.aikids.care.domain.chat.model.Chat;
-import com.aikids.care.domain.chat.model.ChatDetail;
-import com.aikids.care.domain.chat.model.Role;
+import com.aikids.care.domain.chat.dto.*;
+import com.aikids.care.domain.chat.model.*;
 import com.aikids.care.domain.chat.repository.ChatDetailRepository;
 import com.aikids.care.domain.chat.repository.ChatRepository;
 import com.aikids.care.domain.child.repository.ChildRepository;
@@ -19,6 +12,7 @@ import com.aikids.care.global.error.CustomException;
 import com.aikids.care.global.error.ErrorCode;
 import com.aikids.care.infra.gemini.GeminiApiClient;
 import com.aikids.care.infra.stt.GoogleSttClient;
+import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -32,6 +26,7 @@ import reactor.core.scheduler.Schedulers;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Slf4j
@@ -47,6 +42,7 @@ public class ChatService {
     private final GoogleSttClient googleSttClient;
     private final VoiceChatStreamPipeline voiceChatStreamPipeline;
     private final GeminiApiClient geminiApiClient;
+    private final ChatAiService chatAiService;
     private final TransactionTemplate transactionTemplate;
     private final UserRepository userRepository;
     private final ChildRepository childRepository;
@@ -255,5 +251,30 @@ public class ChatService {
         String normalized = text.replaceAll("\\s+", " ").trim();
         if (normalized.length() <= maxLength) return normalized;
         return normalized.substring(0, maxLength) + "...";
+    }
+
+    @Transactional
+    public AiAnalysisResponse analyzeChatAndSave(Long chatId) {
+        // 해당 방의 상세 대화 내역 조회 (IsUser가 true면 부모, false면 AI)
+        List<ChatDetail> details = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
+
+        String chatHistory = details.stream()
+                .map(d -> (d.getRole()== Role.USER? "부모: " : "AI: ") + d.getContent())
+                .collect(Collectors.joining("\n"));
+
+        // AI 서비스 호출 (반환 타입 수정됨)
+        AiAnalysisResponse result = chatAiService.analyzeContent(chatHistory);
+
+        // DB 저장 (엔티티의 필드명에 맞춰 수정하세요)
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new EntityNotFoundException("채팅방을 찾을 수 없습니다."));
+
+        // chat 엔티티에 분석 결과를 업데이트하는 메서드가 필요합니다.
+        chat.updateAnalysis(
+                Category.valueOf(result.getCategory().toUpperCase()),
+                RiskLevel.valueOf(result.getRiskLevel().toUpperCase())
+        );
+
+        return result;
     }
 }

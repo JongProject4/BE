@@ -2,10 +2,7 @@ package com.aikids.care.domain.chat.service;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpStatusCodeException;
 import org.springframework.web.client.RestTemplate;
@@ -31,7 +28,9 @@ public class GeminiService {
             "부모가 아이의 증상을 말하면, 1) 공감하고 안심시킬 것, " +
             "2) 가정에서 할 수 있는 응급 처치법을 안내할 것, " +
             "3) 심각한 경우 즉시 응급실이나 소아과 방문을 권고할 것. " +
-            "절대 확정적인 의료 진단을 내리지 마세요.";
+            "절대 확정적인 의료 진단을 내리지 마세요. " +
+            "마크다운 기호를 사용하지 않고 번호만 달아서 가독성을 높여주세요. " +
+            "너무 길게 답변하지 말고 핵심만 전달하세요.";
 
     public String askQuestion(String parentMessage, String imageUrl) {
         if (imageUrl != null && !imageUrl.isBlank()) {
