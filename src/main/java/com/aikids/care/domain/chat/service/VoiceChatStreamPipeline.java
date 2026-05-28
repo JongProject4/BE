@@ -253,7 +253,7 @@ public class VoiceChatStreamPipeline {
      * /messages·/voices/sync와 동일한 v1 generateContent — 스트림 API 문제인지 A/B 비교용.
      */
     private Flux<ChatStreamResponse> streamViaSyncLlm(Long chatId, String transcript) {
-        return Mono.fromCallable(() -> geminiService.askQuestion(transcript, null))
+        return Mono.fromCallable(() -> geminiService.askQuestion(chatId, transcript, null))
                 .subscribeOn(Schedulers.boundedElastic())
                 .flatMapMany(aiText -> Flux.concat(
                         Flux.just(ChatStreamResponse.ofFirstChunk(transcript, aiText, "")),
