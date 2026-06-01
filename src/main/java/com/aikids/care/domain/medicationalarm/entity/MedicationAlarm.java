@@ -7,8 +7,11 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Entity
-@Table(name = "medication_alarm")
+@Table(name = "medication_alarm",
+        indexes = @Index(name = "idx_med_alarm_notify", columnList = "is_active, next_notify_at"))
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class MedicationAlarm {
@@ -33,6 +36,9 @@ public class MedicationAlarm {
     @Column(name = "is_active", nullable = false)
     private Boolean isActive = true;
 
+    @Column(name = "next_notify_at")
+    private LocalDateTime nextNotifyAt;
+
     @Builder
     public MedicationAlarm(Child child, String medicineName, String dosage, Integer intervalHour) {
         this.child = child;
@@ -40,6 +46,7 @@ public class MedicationAlarm {
         this.dosage = dosage;
         this.intervalHour = intervalHour;
         this.isActive = true;
+        this.nextNotifyAt = LocalDateTime.now();
     }
 
     public void update(String medicineName, String dosage, Integer intervalHour, Boolean isActive) {
@@ -47,5 +54,9 @@ public class MedicationAlarm {
         if (dosage != null) this.dosage = dosage;
         if (intervalHour != null) this.intervalHour = intervalHour;
         if (isActive != null) this.isActive = isActive;
+    }
+
+    public void updateNextNotifyAt(LocalDateTime nextNotifyAt) {
+        this.nextNotifyAt = nextNotifyAt;
     }
 }

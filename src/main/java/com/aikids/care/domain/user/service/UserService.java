@@ -38,41 +38,27 @@ public class UserService {
 	@Transactional
 	public void updateCurrentUserInfo(String socialId, SocialType socialType, UpdateUserInfoRequest request) {
 		if (request == null || request.isEmpty()) {
-			throw new IllegalArgumentException("At least one field (phoneNumber, fcmToken) must be provided");
+			throw new IllegalArgumentException("phoneNumber must be provided");
 		}
 		User user = findUser(socialId, socialType);
-		user.updateAdditionalInfo(request.phoneNumber(), request.fcmToken());
+		user.updateAdditionalInfo(request.phoneNumber());
 		userRepository.save(user);
 	}
 
 	@Transactional
 	public void patchCurrentUserInfo(String socialId, SocialType socialType, PatchUserInfoRequest request) {
 		if (request == null || request.isEmpty()) {
-			throw new IllegalArgumentException("At least one field (name, phoneNumber, fcmToken) must be provided");
+			throw new IllegalArgumentException("At least one field (name, phoneNumber) must be provided");
 		}
 		User user = findUser(socialId, socialType);
 		user.updateName(request.name());
-		user.updateAdditionalInfo(request.phoneNumber(), request.fcmToken());
+		user.updateAdditionalInfo(request.phoneNumber());
 		userRepository.save(user);
 	}
 
 	@Transactional
 	public void deleteCurrentUser(String socialId, SocialType socialType) {
 		userRepository.delete(findUser(socialId, socialType));
-	}
-
-	@Transactional
-	public void updateCurrentUserFcmToken(String socialId, SocialType socialType, String fcmToken) {
-		if (fcmToken == null || fcmToken.trim().isBlank()) {
-			throw new IllegalArgumentException("fcmToken must not be blank");
-		}
-		String normalizedToken = fcmToken.trim();
-		User user = findUser(socialId, socialType);
-		if (normalizedToken.equals(user.getFcmToken())) {
-			return;
-		}
-		user.updateFcmToken(normalizedToken);
-		userRepository.save(user);
 	}
 
 	private User findUser(String socialId, SocialType socialType) {

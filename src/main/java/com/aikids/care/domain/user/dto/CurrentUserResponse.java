@@ -8,8 +8,7 @@ public record CurrentUserResponse(
 		String socialId,
 		SocialType socialType,
 		String name,
-		String phoneNumber,
-		String fcmToken
+		String phoneNumber
 ) {
 	public static CurrentUserResponse from(User user) {
 		return new CurrentUserResponse(
@@ -17,9 +16,7 @@ public record CurrentUserResponse(
 				user.getSocialId(),
 				user.getSocialType(),
 				user.getName(),
-				user.getPhoneNumber(),
-				user.getFcmToken()
+				user.getPhoneNumber()
 		);
 	}
 }
-
