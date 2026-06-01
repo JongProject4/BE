@@ -5,6 +5,7 @@ import com.aikids.care.domain.user.dto.FcmTokenRequest;
 import com.aikids.care.domain.user.dto.PatchUserInfoRequest;
 import com.aikids.care.domain.user.dto.UpdateUserInfoRequest;
 import com.aikids.care.domain.user.dto.UserActionResponse;
+import com.aikids.care.domain.user.service.UserDeviceService;
 import com.aikids.care.domain.user.service.UserService;
 import com.aikids.care.global.security.OAuth2Utils;
 import com.aikids.care.global.security.OAuth2Utils.AuthInfo;
@@ -12,13 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.core.user.OAuth2User;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequiredArgsConstructor
@@ -26,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
 	private final UserService userService;
+	private final UserDeviceService userDeviceService;
 
 	@GetMapping("/me")
 	public CurrentUserResponse me(@AuthenticationPrincipal OAuth2User oauth2User) {
@@ -60,13 +56,14 @@ public class UserController {
 		return ResponseEntity.ok(UserActionResponse.success("User account deleted successfully."));
 	}
 
-	@PatchMapping("/me/fcm-token")
-	public ResponseEntity<Void> updateFcmToken(
+	// 디바이스 FCM 토큰 등록 (다중 기기 지원)
+	@PostMapping("/me/device-token")
+	public ResponseEntity<Void> registerDeviceToken(
 			@AuthenticationPrincipal OAuth2User oauth2User,
 			@RequestBody FcmTokenRequest request
 	) {
-		AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
-		userService.updateCurrentUserFcmToken(auth.socialId(), auth.socialType(), request.fcmToken());
+		Long userId = OAuth2Utils.extractUserId(oauth2User);
+		userDeviceService.registerDevice(userId, request.fcmToken());
 		return ResponseEntity.noContent().build();
 	}
 }

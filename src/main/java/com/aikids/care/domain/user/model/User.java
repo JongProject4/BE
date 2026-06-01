@@ -44,9 +44,6 @@ public class User {
 	@Column(name = "phone_number")
 	private String phoneNumber;
 
-	@Column(name = "fcm_token")
-	private String fcmToken;
-
 	// User(부모) 1명은 Child(아이 프로필) 여러 명을 가질 수 있다.
 	@OneToMany(mappedBy = "user")
 	private List<Child> children = new ArrayList<>();
@@ -65,22 +62,10 @@ public class User {
 		this.name = name;
 	}
 
-	public void updateAdditionalInfo(String phoneNumber, String fcmToken) {
+	public void updateAdditionalInfo(String phoneNumber) {
 		if (phoneNumber != null) {
-			String trimmedPhoneNumber = phoneNumber.trim();
-			this.phoneNumber = trimmedPhoneNumber.isBlank() ? null : trimmedPhoneNumber;
+			String trimmed = phoneNumber.trim();
+			this.phoneNumber = trimmed.isBlank() ? null : trimmed;
 		}
-		if (fcmToken != null) {
-			String trimmedFcmToken = fcmToken.trim();
-			this.fcmToken = trimmedFcmToken.isBlank() ? null : trimmedFcmToken;
-		}
-	}
-
-	public void updateFcmToken(String fcmToken) {
-		if (fcmToken == null) {
-			return;
-		}
-		String trimmedFcmToken = fcmToken.trim();
-		this.fcmToken = trimmedFcmToken.isBlank() ? null : trimmedFcmToken;
 	}
 }

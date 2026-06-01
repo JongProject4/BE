@@ -80,7 +80,7 @@ public class ChatController {
         } catch (Exception e) {
             log.error("[VoiceSync] chatId={} failed: {}", chatId, e.getMessage(), e);
             return ResponseEntity.internalServerError()
-                    .body(Map.of("error", "voice 처리 실패: " + e.getMessage()));
+                    .body(Map.of("error", "음성 상담 처리에 실패했습니다."));
         }
     }
 

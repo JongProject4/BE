@@ -25,7 +25,7 @@ public class MedicationAlarmService {
     // 복약 알림 목록 조회
     public List<MedicationAlarmResponse> getMedicationAlarms(Long childId, Long userId) {
         validateChild(childId, userId);
-        return medicationAlarmRepository.findByChild_Id(childId)
+        return medicationAlarmRepository.findByChild_IdAndIsActiveTrue(childId)
                 .stream()
                 .map(MedicationAlarmResponse::from)
                 .toList();

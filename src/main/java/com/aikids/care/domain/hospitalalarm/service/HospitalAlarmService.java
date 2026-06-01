@@ -25,7 +25,7 @@ public class HospitalAlarmService {
     // 내원 알림 목록 조회
     public List<HospitalAlarmResponse> getHospitalAlarms(Long childId, Long userId) {
         validateChild(childId, userId);
-        return hospitalAlarmRepository.findByChild_Id(childId)
+        return hospitalAlarmRepository.findByChild_IdAndIsActiveTrue(childId)
                 .stream()
                 .map(HospitalAlarmResponse::from)
                 .toList();
