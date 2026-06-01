@@ -106,9 +106,14 @@ public class ChatService {
             );
         }
 
+        // 현재 질문 저장 전에 히스토리 로드 (저장 후 로드하면 현재 턴이 히스토리에 중복 포함됨)
+        List<ChatDetail> allDetails = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
+        String interimSummary = generateInterimSummaryIfNeeded(chatId, allDetails);
+        List<Map<String, String>> history = toHistory(allDetails);
+
         return Mono.fromRunnable(() -> chatMessagePersistence.saveUserTranscript(chatId, transcript))
                 .subscribeOn(Schedulers.boundedElastic())
-                .thenMany(voiceChatStreamPipeline.stream(chatId, transcript));
+                .thenMany(voiceChatStreamPipeline.stream(chatId, transcript, history, interimSummary));
     }
 
     // LLM 호출 구간에 DB 커넥션을 점유하지 않도록 TransactionTemplate으로 트랜잭션 분리

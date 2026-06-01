@@ -65,20 +65,36 @@ public class GeminiStreamClient {
 
     /**
      * 텍스트 전용 고속 스트리밍 (TEXT 모달리티만 요청).
+     * history: role("user"/"model") + content 쌍의 리스트, 없으면 null 또는 빈 리스트
+     * interimSummary: 슬라이딩 윈도우 중간 요약, 없으면 null
      */
-    public Flux<GeminiStreamChunk> streamTextOnly(String userMessage) {
-        log.info("[GeminiStream] text-only model={}, userMessage='{}'", streamModel, abbreviate(userMessage, 120));
+    public Flux<GeminiStreamChunk> streamTextOnly(String userMessage, List<Map<String, String>> history, String interimSummary) {
+        log.info("[GeminiStream] text-only model={}, historySize={}, userMessage='{}'",
+                streamModel, history != null ? history.size() : 0, abbreviate(userMessage, 120));
+
+        String systemPrompt = (interimSummary != null && !interimSummary.isBlank())
+                ? SHORT_PEDIATRIC_SYSTEM_PROMPT + "\n\n[이전 대화 요약]\n" + interimSummary
+                : SHORT_PEDIATRIC_SYSTEM_PROMPT;
+
+        List<Map<String, Object>> contents = new ArrayList<>();
+        if (history != null) {
+            for (Map<String, String> turn : history) {
+                contents.add(Map.of(
+                        "role", turn.get("role"),
+                        "parts", List.of(Map.of("text", turn.get("content")))
+                ));
+            }
+        }
+        contents.add(Map.of(
+                "role", "user",
+                "parts", List.of(Map.of("text", userMessage))
+        ));
 
         Map<String, Object> body = Map.of(
                 "systemInstruction", Map.of(
-                        "parts", List.of(Map.of("text", SHORT_PEDIATRIC_SYSTEM_PROMPT))
+                        "parts", List.of(Map.of("text", systemPrompt))
                 ),
-                "contents", List.of(
-                        Map.of(
-                                "role", "user",
-                                "parts", List.of(Map.of("text", userMessage))
-                        )
-                ),
+                "contents", contents,
                 "generationConfig", textOnlyGenerationConfig()
         );
 
