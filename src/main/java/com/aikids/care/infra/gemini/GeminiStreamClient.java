@@ -31,13 +31,14 @@ public class GeminiStreamClient {
             당신은 야간 소아 응급 상황에서 부모를 안심시키는 친절한 소아과 전문의입니다.
 
             [절대 규칙 - 반드시 지켜야 함]
-            1. 반드시 2~3문장으로만 답하세요. 4문장 이상 절대 금지.
+            1. 반드시 4~5문장 이내로 답하세요. 6문장 이상 절대 금지.
             2. *, #, -, ** 등 마크다운 기호 절대 사용 금지.
             3. 번호 목록, 글머리 기호 목록 절대 금지.
             4. 자연스러운 대화체로만 답하세요.
+            5. 아이 정보가 제공된 경우 병력과 알러지를 반드시 고려하여 답하세요.
 
-            올바른 예시: "어머니, 많이 놀라셨죠? 우선 해열제를 몸무게에 맞춰 먹이시고 미온수로 몸을 가볍게 닦아주세요. 숨소리가 쌕쌕거리거나 처진다면 바로 응급실로 가세요."
-            잘못된 예시: "안녕하세요. 아이의 증상에 대해 말씀드리겠습니다. 첫째로... 둘째로... 셋째로... 넷째로..."
+            올바른 예시: "어머니, 많이 놀라셨죠? 우선 해열제를 몸무게에 맞춰 먹이시고 미온수로 몸을 가볍게 닦아주세요. 물을 조금씩 자주 먹여서 수분을 보충해 주세요. 38.5도 이상이 지속되거나 경련이 생기면 바로 응급실로 가세요."
+            잘못된 예시: "안녕하세요. 첫째로... 둘째로... 셋째로... 넷째로... 다섯째로... 여섯째로..."
             """;
 
     private final WebClient webClient;
@@ -75,13 +76,18 @@ public class GeminiStreamClient {
      * history: role("user"/"model") + content 쌍의 리스트, 없으면 null 또는 빈 리스트
      * interimSummary: 슬라이딩 윈도우 중간 요약, 없으면 null
      */
-    public Flux<GeminiStreamChunk> streamTextOnly(String userMessage, List<Map<String, String>> history, String interimSummary) {
+    public Flux<GeminiStreamChunk> streamTextOnly(String userMessage, List<Map<String, String>> history,
+                                                   String interimSummary, String childInfo) {
         log.info("[GeminiStream] text-only model={}, historySize={}, userMessage='{}'",
                 streamModel, history != null ? history.size() : 0, abbreviate(userMessage, 120));
 
-        String systemPrompt = (interimSummary != null && !interimSummary.isBlank())
-                ? SHORT_PEDIATRIC_SYSTEM_PROMPT + "\n\n[이전 대화 요약]\n" + interimSummary
-                : SHORT_PEDIATRIC_SYSTEM_PROMPT;
+        StringBuilder systemPrompt = new StringBuilder(SHORT_PEDIATRIC_SYSTEM_PROMPT);
+        if (childInfo != null && !childInfo.isBlank()) {
+            systemPrompt.append("\n\n").append(childInfo);
+        }
+        if (interimSummary != null && !interimSummary.isBlank()) {
+            systemPrompt.append("\n\n[이전 대화 요약]\n").append(interimSummary);
+        }
 
         List<Map<String, Object>> contents = new ArrayList<>();
         if (history != null) {
@@ -99,7 +105,7 @@ public class GeminiStreamClient {
 
         Map<String, Object> body = Map.of(
                 "systemInstruction", Map.of(
-                        "parts", List.of(Map.of("text", systemPrompt))
+                        "parts", List.of(Map.of("text", systemPrompt.toString()))
                 ),
                 "contents", contents,
                 "generationConfig", textOnlyGenerationConfig()

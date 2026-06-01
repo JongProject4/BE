@@ -51,7 +51,8 @@ public class VoiceChatStreamPipeline {
     private int minTtsChars;
 
     public Flux<ChatStreamResponse> stream(Long chatId, String transcript,
-                                           List<Map<String, String>> history, String interimSummary) {
+                                           List<Map<String, String>> history, String interimSummary,
+                                           String childInfo) {
         if (useSyncLlm) {
             log.warn("[VoiceStream] use-sync-llm=true, bypassing streamGenerateContent chatId={}", chatId);
             return streamViaSyncLlm(chatId, transcript);
@@ -181,7 +182,7 @@ public class VoiceChatStreamPipeline {
                             )
             );
 
-            Disposable geminiSubscription = geminiStreamClient.streamTextOnly(transcript, history, interimSummary)
+            Disposable geminiSubscription = geminiStreamClient.streamTextOnly(transcript, history, interimSummary, childInfo)
                     .doOnNext(chunk -> log.debug("[VoiceStream] Gemini chunk chatId={}, textLength={}",
                             chatId, chunk.text() != null ? chunk.text().length() : 0))
                     .subscribe(

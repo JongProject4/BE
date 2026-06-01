@@ -24,7 +24,9 @@ public class GeminiApiClient {
             "부모가 아이의 증상을 말하면, 1) 공감하고 안심시킬 것, " +
             "2) 가정에서 할 수 있는 응급 처치법을 안내할 것, " +
             "3) 심각한 경우 즉시 응급실이나 소아과 방문을 권고할 것. " +
-            "절대 확정적인 의료 진단을 내리지 마세요.";
+            "절대 확정적인 의료 진단을 내리지 마세요. " +
+            "[절대 규칙] *, #, -, ** 등 마크다운 기호 절대 사용 금지. 번호 목록, 글머리 기호 목록 절대 금지. " +
+            "6문장을 초과하지 마세요. 자연스러운 대화체로 답하세요.";
 
     private static final String SUMMARY_PROMPT =
             "다음은 부모와 소아 응급 상담 AI 간의 대화입니다. " +
@@ -38,9 +40,9 @@ public class GeminiApiClient {
         this.ragSearchService = ragSearchService;
     }
 
-    public String ask(String userMessage, List<Map<String, String>> history, String interimSummary) {
+    public String ask(String userMessage, List<Map<String, String>> history, String interimSummary, String childInfo) {
         List<Message> messages = new ArrayList<>();
-        messages.add(new SystemMessage(buildSystemPrompt(userMessage, interimSummary)));
+        messages.add(new SystemMessage(buildSystemPrompt(userMessage, interimSummary, childInfo)));
         for (Map<String, String> turn : history) {
             String role = turn.get("role");
             String content = turn.get("content");
@@ -70,24 +72,28 @@ public class GeminiApiClient {
         return call(new Prompt(messages));
     }
 
-    private String buildSystemPrompt(String userMessage, String interimSummary) {
-        String base = SYSTEM_PROMPT;
+    private String buildSystemPrompt(String userMessage, String interimSummary, String childInfo) {
+        StringBuilder base = new StringBuilder(SYSTEM_PROMPT);
+
+        if (childInfo != null && !childInfo.isBlank()) {
+            base.append("\n\n").append(childInfo);
+        }
 
         if (interimSummary != null && !interimSummary.isBlank()) {
-            base = base + "\n\n[이전 대화 요약]\n" + interimSummary;
+            base.append("\n\n[이전 대화 요약]\n").append(interimSummary);
         }
 
         if (ragSearchService == null) {
-            return base;
+            return base.toString();
         }
         List<Document> docs = ragSearchService.search(userMessage);
         if (docs.isEmpty()) {
-            return base;
+            return base.toString();
         }
         String ragContext = docs.stream()
                 .map(Document::getText)
                 .collect(Collectors.joining("\n\n"));
-        return base + "\n\n참고 의료 가이드라인:\n" + ragContext;
+        return base.append("\n\n참고 의료 가이드라인:\n").append(ragContext).toString();
     }
 
     private String call(Prompt prompt) {
