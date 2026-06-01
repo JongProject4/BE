@@ -15,6 +15,7 @@ import reactor.core.scheduler.Schedulers;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -49,7 +50,8 @@ public class VoiceChatStreamPipeline {
     @Value("${app.voice-stream.min-tts-chars:8}")
     private int minTtsChars;
 
-    public Flux<ChatStreamResponse> stream(Long chatId, String transcript) {
+    public Flux<ChatStreamResponse> stream(Long chatId, String transcript,
+                                           List<Map<String, String>> history, String interimSummary) {
         if (useSyncLlm) {
             log.warn("[VoiceStream] use-sync-llm=true, bypassing streamGenerateContent chatId={}", chatId);
             return streamViaSyncLlm(chatId, transcript);
@@ -179,7 +181,7 @@ public class VoiceChatStreamPipeline {
                             )
             );
 
-            Disposable geminiSubscription = geminiStreamClient.streamTextOnly(transcript)
+            Disposable geminiSubscription = geminiStreamClient.streamTextOnly(transcript, history, interimSummary)
                     .doOnNext(chunk -> log.debug("[VoiceStream] Gemini chunk chatId={}, textLength={}",
                             chatId, chunk.text() != null ? chunk.text().length() : 0))
                     .subscribe(
