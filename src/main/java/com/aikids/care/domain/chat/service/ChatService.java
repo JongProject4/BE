@@ -24,6 +24,8 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 import java.io.IOException;
+import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -111,9 +113,14 @@ public class ChatService {
         String interimSummary = generateInterimSummaryIfNeeded(chatId, allDetails);
         List<Map<String, String>> history = toHistory(allDetails);
 
+        Long childId = chatRepository.findById(chatId)
+                .map(Chat::getChildId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
+        String childInfo = formatChildInfo(childId);
+
         return Mono.fromRunnable(() -> chatMessagePersistence.saveUserTranscript(chatId, transcript))
                 .subscribeOn(Schedulers.boundedElastic())
-                .thenMany(voiceChatStreamPipeline.stream(chatId, transcript, history, interimSummary));
+                .thenMany(voiceChatStreamPipeline.stream(chatId, transcript, history, interimSummary, childInfo));
     }
 
     // LLM 호출 구간에 DB 커넥션을 점유하지 않도록 TransactionTemplate으로 트랜잭션 분리
@@ -121,6 +128,11 @@ public class ChatService {
         List<ChatDetail> allDetails = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
         String interimSummary = generateInterimSummaryIfNeeded(chatId, allDetails);
         List<Map<String, String>> history = toHistory(allDetails);
+
+        Long childId = chatRepository.findById(chatId)
+                .map(Chat::getChildId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
+        String childInfo = formatChildInfo(childId);
 
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
@@ -134,7 +146,7 @@ public class ChatService {
             return null;
         });
 
-        String aiContent = geminiApiClient.ask(userContent, history, interimSummary);
+        String aiContent = geminiApiClient.ask(userContent, history, interimSummary, childInfo);
 
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
@@ -249,6 +261,28 @@ public class ChatService {
 
     private String toGeminiRole(Role role) {
         return role == Role.USER ? "user" : "model";
+    }
+
+    private String formatChildInfo(Long childId) {
+        if (childId == null) return null;
+        return childRepository.findById(childId)
+                .map(child -> {
+                    long months = ChronoUnit.MONTHS.between(
+                            child.getBirthdate().toLocalDate(), LocalDate.now());
+                    String age = months < 12 ? months + "개월" : (months / 12) + "세";
+                    String history = (child.getMedicalHistory() == null || child.getMedicalHistory().isBlank())
+                            ? "없음" : child.getMedicalHistory();
+                    String allergies = (child.getAllergies() == null || child.getAllergies().isBlank())
+                            ? "없음" : child.getAllergies();
+                    return """
+                            [상담 대상 아이 정보 - 반드시 참고하여 답변하세요]
+                            - 이름: %s
+                            - 나이: %s
+                            - 병력: %s
+                            - 알러지: %s
+                            """.formatted(child.getName(), age, history, allergies);
+                })
+                .orElse(null);
     }
 
     private String abbreviate(String text, int maxLength) {
