@@ -62,7 +62,7 @@ public class ChatService {
 
     public String sendMessage(Long chatId, String socialId, SocialType socialType, ChatMessageRequest request) {
         validateChatOwnership(chatId, socialId, socialType);
-        return sendTextMessage(chatId, request.getContent(), request.getImageUrl());
+        return sendInternalMessage(chatId, request.getContent(), request.getImageUrl(), false);
     }
 
     public VoiceChatResponse sendVoiceMessage(Long chatId, String socialId, SocialType socialType, MultipartFile audioFile) throws IOException {
@@ -76,7 +76,7 @@ public class ChatService {
         if (userQuestion.isBlank()) {
             return new VoiceChatResponse("", "음성을 인식하지 못했습니다. 다시 말해 주세요.");
         }
-        String aiAnswer = sendTextMessage(chatId, userQuestion, null);
+        String aiAnswer = sendInternalMessage(chatId, userQuestion, null, true);
         return new VoiceChatResponse(userQuestion, aiAnswer);
     }
 
@@ -126,7 +126,7 @@ public class ChatService {
     }
 
     // LLM 호출 구간에 DB 커넥션을 점유하지 않도록 TransactionTemplate으로 트랜잭션 분리
-    private String sendTextMessage(Long chatId, String userContent, String imageUrl) {
+    private String sendInternalMessage(Long chatId, String userContent, String imageUrl, boolean isVoice) {
         List<ChatDetail> allDetails = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
         String interimSummary = generateInterimSummaryIfNeeded(chatId, allDetails);
         List<Map<String, String>> history = toHistory(allDetails);
@@ -148,7 +148,9 @@ public class ChatService {
             return null;
         });
 
-        String aiContent = geminiApiClient.ask(userContent, history, interimSummary, childInfo);
+        String aiContent = isVoice
+                ? geminiApiClient.askVoice(userContent, history, interimSummary, childInfo)
+                : geminiApiClient.askText(userContent, history, interimSummary, childInfo);
 
         transactionTemplate.execute(status -> {
             Chat chat = chatRepository.findById(chatId)
