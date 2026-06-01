@@ -19,14 +19,31 @@ import java.util.stream.Collectors;
 @Slf4j
 public class GeminiApiClient {
 
-    private static final String SYSTEM_PROMPT =
-            "당신은 친절하고 전문적인 '소아 응급 상담 AI 보조'입니다. " +
-            "부모가 아이의 증상을 말하면, 1) 공감하고 안심시킬 것, " +
-            "2) 가정에서 할 수 있는 응급 처치법을 안내할 것, " +
-            "3) 심각한 경우 즉시 응급실이나 소아과 방문을 권고할 것. " +
-            "절대 확정적인 의료 진단을 내리지 마세요. " +
-            "[절대 규칙] *, #, -, ** 등 마크다운 기호 절대 사용 금지. 번호 목록, 글머리 기호 목록 절대 금지. " +
-            "6문장을 초과하지 마세요. 자연스러운 대화체로 답하세요.";
+    private static final String VOICE_SYSTEM_PROMPT =
+            "당신은 소아 응급 전화 상담 전문의입니다. 부모가 아이의 긴급 증상을 음성으로 전달하면 답변합니다.\n\n" +
+            "[답변 우선순위]\n" +
+            "1. 지금 즉시 해야 할 조치를 첫 문장에 말하세요.\n" +
+            "2. 응급실 방문이 필요한지 명확하게 알려주세요.\n\n" +
+            "[절대 규칙]\n" +
+            "- 3문장을 초과하지 마세요.\n" +
+            "- *, #, -, ** 등 마크다운 기호 절대 사용 금지.\n" +
+            "- 번호 목록, 글머리 기호 목록 절대 금지.\n" +
+            "- 공감보다 정확한 정보를 먼저 전달하세요.\n" +
+            "- 자연스러운 대화체로만 답하세요.\n" +
+            "- 확정적인 의료 진단은 절대 내리지 마세요.\n" +
+            "- 아이 정보(병력/알러지)가 있으면 반드시 고려하세요.";
+
+    private static final String TEXT_SYSTEM_PROMPT =
+            "당신은 친절하고 전문적인 소아 건강 상담 AI 보조입니다. 부모가 아이의 증상을 텍스트로 질문하면 답변합니다.\n\n" +
+            "[답변 원칙]\n" +
+            "1. 부모의 걱정에 먼저 공감하세요.\n" +
+            "2. 가정에서 할 수 있는 조치를 단계별로 자세히 안내하세요.\n" +
+            "3. 심각한 증상이면 병원 방문을 권고하세요.\n" +
+            "4. 아이 정보(병력/알러지)가 있으면 반드시 고려하세요.\n\n" +
+            "[형식 규칙]\n" +
+            "- 번호(1. 2. 3.)나 단계별 설명을 활용해 답변을 구조화하세요.\n" +
+            "- *, #, ** 등 마크다운 기호는 사용하지 마세요.\n" +
+            "- 확정적인 의료 진단은 절대 내리지 마세요.";
 
     private static final String SUMMARY_PROMPT =
             "다음은 부모와 소아 응급 상담 AI 간의 대화입니다. " +
@@ -40,9 +57,17 @@ public class GeminiApiClient {
         this.ragSearchService = ragSearchService;
     }
 
-    public String ask(String userMessage, List<Map<String, String>> history, String interimSummary, String childInfo) {
+    public String askText(String userMessage, List<Map<String, String>> history, String interimSummary, String childInfo) {
+        return ask(userMessage, history, interimSummary, childInfo, TEXT_SYSTEM_PROMPT);
+    }
+
+    public String askVoice(String userMessage, List<Map<String, String>> history, String interimSummary, String childInfo) {
+        return ask(userMessage, history, interimSummary, childInfo, VOICE_SYSTEM_PROMPT);
+    }
+
+    private String ask(String userMessage, List<Map<String, String>> history, String interimSummary, String childInfo, String basePrompt) {
         List<Message> messages = new ArrayList<>();
-        messages.add(new SystemMessage(buildSystemPrompt(userMessage, interimSummary, childInfo)));
+        messages.add(new SystemMessage(buildSystemPrompt(basePrompt, userMessage, interimSummary, childInfo)));
         for (Map<String, String> turn : history) {
             String role = turn.get("role");
             String content = turn.get("content");
@@ -66,14 +91,14 @@ public class GeminiApiClient {
                 : SUMMARY_PROMPT + "\n\n" + conversationText;
 
         List<Message> messages = List.of(
-                new SystemMessage(SYSTEM_PROMPT),
+                new SystemMessage(TEXT_SYSTEM_PROMPT),
                 new UserMessage(promptBody)
         );
         return call(new Prompt(messages));
     }
 
-    private String buildSystemPrompt(String userMessage, String interimSummary, String childInfo) {
-        StringBuilder base = new StringBuilder(SYSTEM_PROMPT);
+    private String buildSystemPrompt(String basePrompt, String userMessage, String interimSummary, String childInfo) {
+        StringBuilder base = new StringBuilder(basePrompt);
 
         if (childInfo != null && !childInfo.isBlank()) {
             base.append("\n\n").append(childInfo);
