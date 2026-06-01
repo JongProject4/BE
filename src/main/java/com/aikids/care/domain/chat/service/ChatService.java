@@ -12,7 +12,6 @@ import com.aikids.care.global.error.CustomException;
 import com.aikids.care.global.error.ErrorCode;
 import com.aikids.care.infra.gemini.GeminiApiClient;
 import com.aikids.care.infra.stt.GoogleSttClient;
-import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -61,11 +60,13 @@ public class ChatService {
         return chatRepository.save(chat).getId();
     }
 
-    public String sendMessage(Long chatId, ChatMessageRequest request) {
+    public String sendMessage(Long chatId, String socialId, SocialType socialType, ChatMessageRequest request) {
+        validateChatOwnership(chatId, socialId, socialType);
         return sendTextMessage(chatId, request.getContent(), request.getImageUrl());
     }
 
-    public VoiceChatResponse sendVoiceMessage(Long chatId, MultipartFile audioFile) throws IOException {
+    public VoiceChatResponse sendVoiceMessage(Long chatId, String socialId, SocialType socialType, MultipartFile audioFile) throws IOException {
+        validateChatOwnership(chatId, socialId, socialType);
         String userQuestion = googleSttClient.transcribe(
                 audioFile.getBytes(),
                 audioFile.getContentType(),
@@ -82,7 +83,8 @@ public class ChatService {
     /**
      * 음성 상담 SSE 스트리밍: STT → 짧은 답변 텍스트/오디오 청크 → 종료 시 DB 저장.
      */
-    public Flux<ChatStreamResponse> handleVoiceChatStream(Long chatId, MultipartFile voiceFile) {
+    public Flux<ChatStreamResponse> handleVoiceChatStream(Long chatId, String socialId, SocialType socialType, MultipartFile voiceFile) {
+        validateChatOwnership(chatId, socialId, socialType);
         return Mono.fromCallable(() -> googleSttClient.transcribe(
                         voiceFile.getBytes(),
                         voiceFile.getContentType(),
@@ -191,7 +193,8 @@ public class ChatService {
         return newSummary;
     }
 
-    public void closeChat(Long chatId) {
+    public void closeChat(Long chatId, String socialId, SocialType socialType) {
+        validateChatOwnership(chatId, socialId, socialType);
         List<Map<String, String>> history = loadHistory(chatId);
         if (history.isEmpty()) return;
 
@@ -208,20 +211,23 @@ public class ChatService {
     }
 
     @Transactional
-    public void updateChatResult(Long chatId, ChatUpdateRequest request) {
+    public void updateChatResult(Long chatId, String socialId, SocialType socialType, ChatUpdateRequest request) {
+        validateChatOwnership(chatId, socialId, socialType);
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
         chat.updateResult(request.getCategory(), request.getRiskLevel());
     }
 
     @Transactional
-    public void deleteChat(Long chatId) {
+    public void deleteChat(Long chatId, String socialId, SocialType socialType) {
+        validateChatOwnership(chatId, socialId, socialType);
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
         chatRepository.delete(chat);
     }
 
-    public List<ChatDetailResponse> getChatHistory(Long chatId) {
+    public List<ChatDetailResponse> getChatHistory(Long chatId, String socialId, SocialType socialType) {
+        validateChatOwnership(chatId, socialId, socialType);
         List<ChatDetail> details = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
         return details.stream()
                 .map(detail -> new ChatDetailResponse(
@@ -285,6 +291,15 @@ public class ChatService {
                 .orElse(null);
     }
 
+    private void validateChatOwnership(Long chatId, String socialId, SocialType socialType) {
+        User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        Chat chat = chatRepository.findById(chatId)
+                .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
+        childRepository.findByIdAndUser_Id(chat.getChildId(), user.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.FORBIDDEN));
+    }
+
     private String abbreviate(String text, int maxLength) {
         if (text == null) return "";
         String normalized = text.replaceAll("\\s+", " ").trim();
@@ -293,7 +308,8 @@ public class ChatService {
     }
 
     @Transactional
-    public AiAnalysisResponse analyzeChatAndSave(Long chatId) {
+    public AiAnalysisResponse analyzeChatAndSave(Long chatId, String socialId, SocialType socialType) {
+        validateChatOwnership(chatId, socialId, socialType);
         // 해당 방의 상세 대화 내역 조회 (IsUser가 true면 부모, false면 AI)
         List<ChatDetail> details = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
 
@@ -306,7 +322,7 @@ public class ChatService {
 
         // DB 저장 (엔티티의 필드명에 맞춰 수정하세요)
         Chat chat = chatRepository.findById(chatId)
-                .orElseThrow(() -> new EntityNotFoundException("채팅방을 찾을 수 없습니다."));
+                .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
 
         // chat 엔티티에 분석 결과를 업데이트하는 메서드가 필요합니다.
         chat.updateAnalysis(

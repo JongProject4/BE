@@ -3,9 +3,11 @@ package com.aikids.care.domain.chat.service;
 import com.aikids.care.domain.chat.dto.AiAnalysisResponse;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ChatAiService {
@@ -31,7 +33,7 @@ public class ChatAiService {
 
         String response = chatModel.call(prompt);
         // 로그를 찍어서 AI가 실제로 뭐라고 대답했는지 꼭 확인해보세요!
-        System.out.println("AI Raw Response: " + response);
+        log.debug("[ChatAiService] AI raw response: {}", response);
         return parseResponse(response);
     }
 

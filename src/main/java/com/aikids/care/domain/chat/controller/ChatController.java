@@ -44,18 +44,23 @@ public class ChatController {
     }
 
     @PostMapping("/{chatId}/messages")
-    public ResponseEntity<ChatMessageResponse> sendMessage(@PathVariable Long chatId,
-                                                           @RequestBody ChatMessageRequest request) {
-        String aiAnswer = chatService.sendMessage(chatId, request);
+    public ResponseEntity<ChatMessageResponse> sendMessage(
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @PathVariable Long chatId,
+            @RequestBody ChatMessageRequest request) {
+        AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+        String aiAnswer = chatService.sendMessage(chatId, auth.socialId(), auth.socialType(), request);
         return ResponseEntity.ok(new ChatMessageResponse(aiAnswer));
     }
 
     // 음성 상담 SSE 스트리밍 (POST /api/chats/{chatId}/voices)
     @PostMapping(value = "/{chatId}/voices", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<ChatStreamResponse>> streamVoiceChat(
+            @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long chatId,
             @RequestParam("file") MultipartFile file) {
-        return chatService.handleVoiceChatStream(chatId, file)
+        AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+        return chatService.handleVoiceChatStream(chatId, auth.socialId(), auth.socialType(), file)
                 .map(chunk -> ServerSentEvent.<ChatStreamResponse>builder()
                         .data(chunk)
                         .build())
@@ -72,10 +77,13 @@ public class ChatController {
 
     // 동기 음성 상담 (레거시, 필요 시 사용)
     @PostMapping(value = "/{chatId}/voices/sync", produces = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<?> sendVoiceMessageSync(@PathVariable Long chatId,
-                                                  @RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> sendVoiceMessageSync(
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @PathVariable Long chatId,
+            @RequestParam("file") MultipartFile file) {
+        AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
         try {
-            VoiceChatResponse response = chatService.sendVoiceMessage(chatId, file);
+            VoiceChatResponse response = chatService.sendVoiceMessage(chatId, auth.socialId(), auth.socialType(), file);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("[VoiceSync] chatId={} failed: {}", chatId, e.getMessage(), e);
@@ -93,31 +101,47 @@ public class ChatController {
     }
 
     @PatchMapping("/{chatId}")
-    public ResponseEntity<Void> updateChatResult(@PathVariable Long chatId, @RequestBody ChatUpdateRequest request) {
-        chatService.updateChatResult(chatId, request);
+    public ResponseEntity<Void> updateChatResult(
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @PathVariable Long chatId,
+            @RequestBody ChatUpdateRequest request) {
+        AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+        chatService.updateChatResult(chatId, auth.socialId(), auth.socialType(), request);
         return ResponseEntity.ok().build();
     }
 
     @GetMapping("/{chatId}/messages")
-    public ResponseEntity<List<ChatDetailResponse>> getChatHistory(@PathVariable Long chatId) {
-        return ResponseEntity.ok(chatService.getChatHistory(chatId));
+    public ResponseEntity<List<ChatDetailResponse>> getChatHistory(
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @PathVariable Long chatId) {
+        AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+        return ResponseEntity.ok(chatService.getChatHistory(chatId, auth.socialId(), auth.socialType()));
     }
 
     @PostMapping("/{chatId}/close")
-    public ResponseEntity<Void> closeChat(@PathVariable Long chatId) {
-        chatService.closeChat(chatId);
+    public ResponseEntity<Void> closeChat(
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @PathVariable Long chatId) {
+        AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+        chatService.closeChat(chatId, auth.socialId(), auth.socialType());
         return ResponseEntity.ok().build();
     }
 
     @DeleteMapping("/{chatId}")
-    public ResponseEntity<Void> deleteChat(@PathVariable Long chatId) {
-        chatService.deleteChat(chatId);
+    public ResponseEntity<Void> deleteChat(
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @PathVariable Long chatId) {
+        AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+        chatService.deleteChat(chatId, auth.socialId(), auth.socialType());
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{chatId}/analyze")
-    public ResponseEntity<AiAnalysisResponse> analyzeChat(@PathVariable Long chatId) {
-        AiAnalysisResponse response = chatService.analyzeChatAndSave(chatId);
+    public ResponseEntity<AiAnalysisResponse> analyzeChat(
+            @AuthenticationPrincipal OAuth2User oauth2User,
+            @PathVariable Long chatId) {
+        AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
+        AiAnalysisResponse response = chatService.analyzeChatAndSave(chatId, auth.socialId(), auth.socialType());
         return ResponseEntity.ok(response);
     }
 }
