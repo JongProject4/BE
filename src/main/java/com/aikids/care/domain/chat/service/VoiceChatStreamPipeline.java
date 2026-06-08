@@ -352,6 +352,11 @@ public class VoiceChatStreamPipeline {
             if (index + 1 < content.length() && content.charAt(index + 1) == '.') {
                 return false;
             }
+            // 숫자 사이 마침표(예: 38.5, 1.0)는 문장 끝이 아니므로 분리하지 않음
+            if (index > 0 && Character.isDigit(content.charAt(index - 1))
+                    && index + 1 < content.length() && Character.isDigit(content.charAt(index + 1))) {
+                return false;
+            }
             return true;
         }
         if (ttsSplitOnComma && (c == ',' || c == '\uFF0C')) {

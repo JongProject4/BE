@@ -68,6 +68,8 @@ public class GeminiStreamClient {
             @Value("${app.gemini.log-raw-sse:true}") boolean logRawSse) {
         this.webClient = webClientBuilder
                 .baseUrl("https://generativelanguage.googleapis.com")
+                // Gemini TTS 응답(base64 오디오)이 기본 256KB 한도를 자주 초과해 DataBufferLimitException으로 폐기됨
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10 * 1024 * 1024))
                 .build();
         this.objectMapper = objectMapper;
         this.apiKey = apiKey;
