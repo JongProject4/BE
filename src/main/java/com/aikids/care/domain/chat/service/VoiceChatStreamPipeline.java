@@ -69,6 +69,7 @@ public class VoiceChatStreamPipeline {
             AtomicBoolean ttsWorkerBusy = new AtomicBoolean(false);
             AtomicBoolean streamFinalized = new AtomicBoolean(false);
             AtomicInteger geminiChunkCount = new AtomicInteger(0);
+            AtomicInteger inFlightTts = new AtomicInteger(0);
             Queue<String> ttsQueue = new ConcurrentLinkedQueue<>();
             AtomicReference<Disposable> watchdogRef = new AtomicReference<>();
 
@@ -114,6 +115,10 @@ public class VoiceChatStreamPipeline {
                     log.debug("[VoiceStream] chatId={} waiting for TTS worker", chatId);
                     return;
                 }
+                if (inFlightTts.get() > 0) {
+                    log.debug("[VoiceStream] chatId={} waiting for {} in-flight TTS", chatId, inFlightTts.get());
+                    return;
+                }
                 if (!ttsQueue.isEmpty()) {
                     log.debug("[VoiceStream] chatId={} TTS queue size={}", chatId, ttsQueue.size());
                     return;
@@ -133,8 +138,11 @@ public class VoiceChatStreamPipeline {
                 }
 
                 ttsWorkerBusy.set(true);
+                inFlightTts.incrementAndGet();
                 log.info("[VoiceStream] TTS start chatId={}, sentence='{}'", chatId, abbreviate(sentence, 80));
 
+                // doFinally: onNext/onComplete가 모두 호출되어 busy 플래그가 잘못 덮어써지던 race 제거.
+                // 모든 종료 시그널(complete/error/cancel)에서 한 번만 카운터/플래그 정리 + 다음 큐 처리.
                 geminiStreamClient.synthesizeAudio(sentence)
                         .timeout(TTS_TIMEOUT)
                         .onErrorResume(error -> {
@@ -142,24 +150,19 @@ public class VoiceChatStreamPipeline {
                                     chatId, abbreviate(sentence, 80), error);
                             return Mono.empty();
                         })
+                        .doFinally(signal -> {
+                            inFlightTts.decrementAndGet();
+                            ttsWorkerBusy.set(false);
+                            drainTtsQueueRef.get().run();
+                        })
                         .subscribeOn(Schedulers.boundedElastic())
                         .subscribe(
                                 audio -> {
                                     if (audio != null && !audio.isBlank()) {
                                         sink.next(ChatStreamResponse.ofChunk("", audio));
                                     }
-                                    ttsWorkerBusy.set(false);
-                                    drainTtsQueueRef.get().run();
                                 },
-                                error -> {
-                                    log.error("[VoiceStream] TTS subscribe error chatId={}", chatId, error);
-                                    ttsWorkerBusy.set(false);
-                                    drainTtsQueueRef.get().run();
-                                },
-                                () -> {
-                                    ttsWorkerBusy.set(false);
-                                    drainTtsQueueRef.get().run();
-                                }
+                                error -> log.error("[VoiceStream] TTS subscribe error chatId={}", chatId, error)
                         );
             };
             drainTtsQueueRef.set(drainTtsQueue);
@@ -172,11 +175,12 @@ public class VoiceChatStreamPipeline {
                                         if (streamFinalized.get()) {
                                             return;
                                         }
-                                        log.warn("[VoiceStream] watchdog timeout chatId={}, queueSize={}, ttsBusy={}",
-                                                chatId, ttsQueue.size(), ttsWorkerBusy.get());
+                                        log.warn("[VoiceStream] watchdog timeout chatId={}, queueSize={}, ttsBusy={}, inFlight={}",
+                                                chatId, ttsQueue.size(), ttsWorkerBusy.get(), inFlightTts.get());
                                         ttsQueue.clear();
                                         ttsWorkerBusy.set(false);
-                                        tryCompleteStream.run();
+                                        // 진행 중인 합성이 남아있어도 워치독은 강제로 마감한다.
+                                        finalizeStream.run();
                                     },
                                     error -> log.error("[VoiceStream] watchdog error chatId={}", chatId, error)
                             )
@@ -246,7 +250,8 @@ public class VoiceChatStreamPipeline {
                     geminiCompleted.set(true);
                     ttsQueue.clear();
                     ttsWorkerBusy.set(false);
-                    tryCompleteStream.run();
+                    // 클라이언트 단절 시 진행 중인 합성을 기다리지 않고 즉시 마감.
+                    finalizeStream.run();
                 }
             });
         }, FluxSink.OverflowStrategy.BUFFER);
