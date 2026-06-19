@@ -12,6 +12,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -79,14 +80,17 @@ public class AlarmFlowHandler {
         if (draft.getIntent() == AlarmIntent.MEDICATION) {
             medicationAlarmService.register(childId, userId,
                     draft.getMedicineName(), draft.getDosage(), draft.getIntervalHour());
-            // 캘린더는 health_log 테이블을 조회하므로 동기 기록. eventDate=지금(KST)
+            // 캘린더는 health_log 테이블을 조회하므로 동기 기록.
+            // content에 dosage/intervalHour를 포함 → FE가 intervalHour를 파싱해 endDate를 계산.
+            String content = String.format("%s %s (%d시간마다)",
+                    draft.getMedicineName(), draft.getDosage(), draft.getIntervalHour());
             healthLogService.register(childId, userId, LogType.MEDICATION,
-                    draft.getMedicineName(), toStorage(LocalDateTime.now(KST)));
+                    content, toStorage(LocalDateTime.now(KST).truncatedTo(ChronoUnit.SECONDS)));
             log.info("[AlarmFlow] medication registered childId={}, name={}", childId, draft.getMedicineName());
         } else {
             // visitDate는 LLM이 KST wall-clock으로 추출. JDBC가 INSERT 시 +9 더하는 버그 보상 위해
             // 저장 직전 UTC wall-clock으로 변환 → DB에 KST 의도값이 그대로 들어가도록 함.
-            LocalDateTime visitForStorage = toStorage(draft.getVisitDate());
+            LocalDateTime visitForStorage = toStorage(draft.getVisitDate().truncatedTo(ChronoUnit.SECONDS));
             hospitalAlarmService.register(childId, userId,
                     draft.getHospitalName(), visitForStorage, draft.getMemo());
             healthLogService.register(childId, userId, LogType.HOSPITAL,
@@ -103,10 +107,10 @@ public class AlarmFlowHandler {
 
     private String confirmPrompt(AlarmDraft draft) {
         if (draft.getIntent() == AlarmIntent.MEDICATION) {
-            return String.format("%s %s씩 %d시간마다 알려드릴까요? '네'라고 답해주시면 등록할게요.",
+            return String.format("%s %s씩 %d시간마다 알려드릴까요? '네', '응', '그래' 등으로 답해주시면 등록할게요.",
                     draft.getMedicineName(), draft.getDosage(), draft.getIntervalHour());
         }
-        return String.format("%s %s 방문 알림으로 등록할까요? '네'라고 답해주시면 등록할게요.",
+        return String.format("%s %s 방문 알림으로 등록할까요? '네', '응', '그래' 등으로 답해주시면 등록할게요.",
                 draft.getHospitalName(),
                 draft.getVisitDate().format(VISIT_DATE_FORMAT));
     }
