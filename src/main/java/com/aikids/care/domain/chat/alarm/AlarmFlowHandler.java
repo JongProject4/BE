@@ -1,7 +1,5 @@
 package com.aikids.care.domain.chat.alarm;
 
-import com.aikids.care.domain.healthlog.entity.HealthLog.LogType;
-import com.aikids.care.domain.healthlog.service.HealthLogService;
 import com.aikids.care.domain.hospitalalarm.service.HospitalAlarmService;
 import com.aikids.care.domain.medicationalarm.service.MedicationAlarmService;
 import lombok.RequiredArgsConstructor;
@@ -29,7 +27,6 @@ public class AlarmFlowHandler {
     private final PendingAlarmDraftStore draftStore;
     private final MedicationAlarmService medicationAlarmService;
     private final HospitalAlarmService hospitalAlarmService;
-    private final HealthLogService healthLogService;
 
     /**
      * 알람 등록 흐름을 시도한다. 처리되면 사용자에게 보낼 응답 텍스트를 반환하고,
@@ -80,12 +77,6 @@ public class AlarmFlowHandler {
         if (draft.getIntent() == AlarmIntent.MEDICATION) {
             medicationAlarmService.register(childId, userId,
                     draft.getMedicineName(), draft.getDosage(), draft.getIntervalHour());
-            // 캘린더는 health_log 테이블을 조회하므로 동기 기록.
-            // content에 dosage/intervalHour를 포함 → FE가 intervalHour를 파싱해 endDate를 계산.
-            String content = String.format("%s %s (%d시간마다)",
-                    draft.getMedicineName(), draft.getDosage(), draft.getIntervalHour());
-            healthLogService.register(childId, userId, LogType.MEDICATION,
-                    content, toStorage(LocalDateTime.now(KST).truncatedTo(ChronoUnit.SECONDS)));
             log.info("[AlarmFlow] medication registered childId={}, name={}", childId, draft.getMedicineName());
         } else {
             // visitDate는 LLM이 KST wall-clock으로 추출. JDBC가 INSERT 시 +9 더하는 버그 보상 위해
@@ -93,8 +84,6 @@ public class AlarmFlowHandler {
             LocalDateTime visitForStorage = toStorage(draft.getVisitDate().truncatedTo(ChronoUnit.SECONDS));
             hospitalAlarmService.register(childId, userId,
                     draft.getHospitalName(), visitForStorage, draft.getMemo());
-            healthLogService.register(childId, userId, LogType.HOSPITAL,
-                    draft.getHospitalName(), visitForStorage);
             log.info("[AlarmFlow] hospital registered childId={}, name={}", childId, draft.getHospitalName());
         }
     }
