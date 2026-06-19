@@ -35,6 +35,9 @@ public class Chat {
     @Column(name = "interim_summary", columnDefinition = "TEXT")
     private String interimSummary;
 
+    @Column(name = "pending_alarm_draft", columnDefinition = "TEXT")
+    private String pendingAlarmDraft;
+
     @Column(name = "created_at", columnDefinition = "TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
     private LocalDateTime createdAt;
 
@@ -68,5 +71,9 @@ public class Chat {
 
     public void updateInterimSummary(String interimSummary) {
         this.interimSummary = interimSummary;
+    }
+
+    public void updatePendingAlarmDraft(String pendingAlarmDraft) {
+        this.pendingAlarmDraft = pendingAlarmDraft;
     }
 }
