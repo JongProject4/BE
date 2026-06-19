@@ -113,7 +113,7 @@ class AlarmFlowHandlerTest {
         assertThat(reply.get()).contains("타이레놀", "5ml", "24");
         verify(medicationAlarmService).register(CHILD_ID, USER_ID, "타이레놀", "5ml", 24);
         verify(healthLogService).register(eq(CHILD_ID), eq(USER_ID), eq(LogType.MEDICATION),
-                eq("타이레놀"), any(LocalDateTime.class));
+                eq("타이레놀 5ml (24시간마다)"), any(LocalDateTime.class));
         verify(draftStore).clear(CHAT_ID);
         verify(extractor, never()).extract(anyString(), any());
     }
