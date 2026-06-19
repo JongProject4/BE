@@ -7,8 +7,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -113,15 +111,13 @@ class AlarmFlowHandlerTest {
     }
 
     @Test
-    @DisplayName("진행 중 내원 초안 + CONFIRM → HospitalAlarmService에 KST→UTC 변환된 visitDate로 호출")
+    @DisplayName("진행 중 내원 초안 + CONFIRM → HospitalAlarmService에 visitDate 그대로 전달 (JVM TZ가 KST라 별도 변환 불필요)")
     void pendingConfirmHospitalRegisters() {
-        LocalDateTime visitKst = LocalDateTime.of(2026, 6, 25, 14, 0);
-        LocalDateTime expectedUtc = visitKst.atZone(ZoneId.of("Asia/Seoul"))
-                .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
+        LocalDateTime visitDate = LocalDateTime.of(2026, 6, 25, 14, 0);
         AlarmDraft pending = AlarmDraft.builder()
                 .intent(AlarmIntent.HOSPITAL)
                 .hospitalName("서울아이병원")
-                .visitDate(visitKst)
+                .visitDate(visitDate)
                 .memo("정기검진")
                 .build();
         when(draftStore.load(CHAT_ID)).thenReturn(pending);
@@ -130,7 +126,7 @@ class AlarmFlowHandlerTest {
 
         assertThat(reply).isPresent();
         assertThat(reply.get()).contains("서울아이병원");
-        verify(hospitalAlarmService).register(CHILD_ID, USER_ID, "서울아이병원", expectedUtc, "정기검진");
+        verify(hospitalAlarmService).register(CHILD_ID, USER_ID, "서울아이병원", visitDate, "정기검진");
         verify(draftStore).clear(CHAT_ID);
     }
 
