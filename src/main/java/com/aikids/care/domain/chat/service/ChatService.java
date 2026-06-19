@@ -1,5 +1,6 @@
 package com.aikids.care.domain.chat.service;
 
+import com.aikids.care.domain.chat.alarm.AlarmFlowHandler;
 import com.aikids.care.domain.chat.dto.*;
 import com.aikids.care.domain.chat.model.*;
 import com.aikids.care.domain.chat.repository.ChatDetailRepository;
@@ -27,6 +28,7 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -47,6 +49,7 @@ public class ChatService {
     private final TransactionTemplate transactionTemplate;
     private final UserRepository userRepository;
     private final ChildRepository childRepository;
+    private final AlarmFlowHandler alarmFlowHandler;
 
     @Transactional
     public Long createChat(String socialId, SocialType socialType, ChatCreateRequest request) {
@@ -61,12 +64,17 @@ public class ChatService {
     }
 
     public String sendMessage(Long chatId, String socialId, SocialType socialType, ChatMessageRequest request) {
-        validateChatOwnership(chatId, socialId, socialType);
+        ChatContext ctx = loadValidatedContext(chatId, socialId, socialType);
+        Optional<String> alarmReply = tryAlarmFlow(chatId, ctx.userId(), ctx.childId(), request.getContent());
+        if (alarmReply.isPresent()) {
+            persistAlarmTurn(chatId, request.getContent(), request.getImageUrl(), alarmReply.get());
+            return alarmReply.get();
+        }
         return sendInternalMessage(chatId, request.getContent(), request.getImageUrl(), false);
     }
 
     public VoiceChatResponse sendVoiceMessage(Long chatId, String socialId, SocialType socialType, MultipartFile audioFile) throws IOException {
-        validateChatOwnership(chatId, socialId, socialType);
+        ChatContext ctx = loadValidatedContext(chatId, socialId, socialType);
         String userQuestion = googleSttClient.transcribe(
                 audioFile.getBytes(),
                 audioFile.getContentType(),
@@ -76,21 +84,27 @@ public class ChatService {
         if (userQuestion.isBlank()) {
             return new VoiceChatResponse("", "음성을 인식하지 못했습니다. 다시 말해 주세요.");
         }
+        Optional<String> alarmReply = tryAlarmFlow(chatId, ctx.userId(), ctx.childId(), userQuestion);
+        if (alarmReply.isPresent()) {
+            persistAlarmTurn(chatId, userQuestion, null, alarmReply.get());
+            return new VoiceChatResponse(userQuestion, alarmReply.get());
+        }
         String aiAnswer = sendInternalMessage(chatId, userQuestion, null, true);
         return new VoiceChatResponse(userQuestion, aiAnswer);
     }
 
     /**
      * 음성 상담 SSE 스트리밍: STT → 짧은 답변 텍스트/오디오 청크 → 종료 시 DB 저장.
+     * 알람 등록 흐름이면 스트리밍·TTS를 건너뛰고 단발 텍스트 응답으로 마감한다.
      */
     public Flux<ChatStreamResponse> handleVoiceChatStream(Long chatId, String socialId, SocialType socialType, MultipartFile voiceFile) {
-        validateChatOwnership(chatId, socialId, socialType);
+        ChatContext ctx = loadValidatedContext(chatId, socialId, socialType);
         return Mono.fromCallable(() -> googleSttClient.transcribe(
                         voiceFile.getBytes(),
                         voiceFile.getContentType(),
                         voiceFile.getOriginalFilename()))
                 .subscribeOn(Schedulers.boundedElastic())
-                .flatMapMany(transcript -> buildVoiceStream(chatId, transcript))
+                .flatMapMany(transcript -> handleTranscript(chatId, ctx, transcript))
                 .onErrorResume(IOException.class, e -> {
                     log.error("[VoiceStream] STT failed chatId={}", chatId, e);
                     return Flux.just(
@@ -98,6 +112,32 @@ public class ChatService {
                             ChatStreamResponse.ofFinal()
                     );
                 });
+    }
+
+    private Flux<ChatStreamResponse> handleTranscript(Long chatId, ChatContext ctx, String transcript) {
+        if (transcript.isBlank()) {
+            return Flux.just(
+                    ChatStreamResponse.ofChunk("음성을 인식하지 못했습니다. 다시 말해 주세요.", ""),
+                    ChatStreamResponse.ofFinal()
+            );
+        }
+        Optional<String> alarmReply = tryAlarmFlow(chatId, ctx.userId(), ctx.childId(), transcript);
+        if (alarmReply.isPresent()) {
+            return emitAlarmReplyStream(chatId, transcript, alarmReply.get());
+        }
+        return buildVoiceStream(chatId, transcript);
+    }
+
+    private Flux<ChatStreamResponse> emitAlarmReplyStream(Long chatId, String transcript, String reply) {
+        return Mono.fromRunnable(() -> {
+                    chatMessagePersistence.saveUserTranscript(chatId, transcript);
+                    chatMessagePersistence.saveAiReply(chatId, reply);
+                })
+                .subscribeOn(Schedulers.boundedElastic())
+                .thenMany(Flux.just(
+                        ChatStreamResponse.ofFirstChunk(transcript, reply, ""),
+                        ChatStreamResponse.ofFinal()
+                ));
     }
 
     private Flux<ChatStreamResponse> buildVoiceStream(Long chatId, String transcript) {
@@ -294,12 +334,50 @@ public class ChatService {
     }
 
     private void validateChatOwnership(Long chatId, String socialId, SocialType socialType) {
+        loadValidatedContext(chatId, socialId, socialType);
+    }
+
+    private ChatContext loadValidatedContext(Long chatId, String socialId, SocialType socialType) {
         User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
         childRepository.findByIdAndUser_Id(chat.getChildId(), user.getId())
                 .orElseThrow(() -> new CustomException(ErrorCode.FORBIDDEN));
+        return new ChatContext(user.getId(), chat.getChildId());
+    }
+
+    private Optional<String> tryAlarmFlow(Long chatId, Long userId, Long childId, String message) {
+        try {
+            return alarmFlowHandler.handle(chatId, userId, childId, message);
+        } catch (CustomException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("[Alarm] flow failed chatId={}", chatId, e);
+            return Optional.of("알람 등록 중 오류가 발생했어요. 잠시 후 다시 시도해주세요.");
+        }
+    }
+
+    private void persistAlarmTurn(Long chatId, String userContent, String imageUrl, String aiContent) {
+        transactionTemplate.execute(status -> {
+            Chat chat = chatRepository.findById(chatId)
+                    .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
+            chatDetailRepository.save(ChatDetail.builder()
+                    .chat(chat)
+                    .role(Role.USER)
+                    .content(userContent)
+                    .imageUrl(imageUrl)
+                    .build());
+            chatDetailRepository.save(ChatDetail.builder()
+                    .chat(chat)
+                    .role(Role.AI)
+                    .content(aiContent)
+                    .build());
+            return null;
+        });
+    }
+
+    private record ChatContext(Long userId, Long childId) {
     }
 
     private String abbreviate(String text, int maxLength) {

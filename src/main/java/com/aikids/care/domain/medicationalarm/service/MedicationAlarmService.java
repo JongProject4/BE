@@ -46,6 +46,21 @@ public class MedicationAlarmService {
         return MedicationAlarmResponse.from(medicationAlarmRepository.save(medicationAlarm));
     }
 
+    // AI 채팅에서 추출된 필드로 직접 등록 (DTO 우회용 내부 진입점)
+    @Transactional
+    public MedicationAlarmResponse register(Long childId, Long userId, String medicineName, String dosage, Integer intervalHour) {
+        Child child = validateChild(childId, userId);
+
+        MedicationAlarm medicationAlarm = MedicationAlarm.builder()
+                .child(child)
+                .medicineName(medicineName)
+                .dosage(dosage)
+                .intervalHour(intervalHour)
+                .build();
+
+        return MedicationAlarmResponse.from(medicationAlarmRepository.save(medicationAlarm));
+    }
+
     // 복약 알림 수정
     @Transactional
     public MedicationAlarmResponse updateMedicationAlarm(Long childId, Long alarmId, MedicationAlarmRequest request, Long userId) {
