@@ -68,4 +68,19 @@ public class HospitalAlarm {
     public void addNotifiedStage(int stageBit) {
         this.notifiedStages |= stageBit;
     }
+
+    /**
+     * 등록/수정 시점에 이미 트리거 시각이 지난 단계를 "발송됨"으로 마킹해서
+     * 스케줄러가 잘못된 시점에 과거 단계 푸시를 발송하지 않도록 한다.
+     *
+     * 예) 내일 10시 알람을 오늘 19시에 등록하면 7D/3D 트리거 시각이 이미 지났으므로
+     *     해당 단계 마킹 → 1D, 1H만 정상 발송된다.
+     */
+    public void markPastStagesAsNotified(LocalDateTime now) {
+        if (visitDate == null) return;
+        if (now.isAfter(visitDate.minusDays(7))) this.notifiedStages |= STAGE_7D;
+        if (now.isAfter(visitDate.minusDays(3))) this.notifiedStages |= STAGE_3D;
+        if (now.isAfter(visitDate.minusDays(1))) this.notifiedStages |= STAGE_1D;
+        if (now.isAfter(visitDate.minusHours(1))) this.notifiedStages |= STAGE_1H;
+    }
 }
