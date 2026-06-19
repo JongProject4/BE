@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -41,6 +42,21 @@ public class HospitalAlarmService {
                 .hospitalName(request.getHospitalName())
                 .visitDate(request.getVisitDate())
                 .memo(request.getMemo())
+                .build();
+
+        return HospitalAlarmResponse.from(hospitalAlarmRepository.save(hospitalAlarm));
+    }
+
+    // AI 채팅에서 추출된 필드로 직접 등록 (DTO 우회용 내부 진입점)
+    @Transactional
+    public HospitalAlarmResponse register(Long childId, Long userId, String hospitalName, LocalDateTime visitDate, String memo) {
+        Child child = validateChild(childId, userId);
+
+        HospitalAlarm hospitalAlarm = HospitalAlarm.builder()
+                .child(child)
+                .hospitalName(hospitalName)
+                .visitDate(visitDate)
+                .memo(memo)
                 .build();
 
         return HospitalAlarmResponse.from(hospitalAlarmRepository.save(hospitalAlarm));
