@@ -15,11 +15,25 @@ class AlarmConfirmationParserTest {
             "네.",
             "응",
             "예",
+            "예예",
             "맞아",
             "좋아 등록해줘",
             "오케이",
             "ok",
-            "확인"
+            "Ok",
+            "확인",
+            "그래",
+            "그래요",
+            "그럼",
+            "그러죠",
+            "맞습니다",
+            "등록",
+            "등록해",
+            "등록해주세요",
+            "오키",
+            "ㅇㅋ",
+            "ㅇㅇ",
+            "yes"
     })
     @DisplayName("긍정 표현 → CONFIRM")
     void confirmPhrases(String message) {

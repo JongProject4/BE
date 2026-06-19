@@ -36,7 +36,7 @@ public final class AlarmIntentPrompts {
                 3. 추출이 불확실한 필드는 null 로 두세요. 추측하지 마세요.
                 4. intervalHour 는 정수(시간 단위). "하루 3번" => 8, "12시간마다" => 12, "이틀에 한 번" => 48.
                 5. visitDate 는 ISO 8601 LOCAL DATETIME ("yyyy-MM-ddTHH:mm:ss"). 시간 정보가 없으면 09:00:00 으로 채우세요.
-                6. 상대 시간 표현은 아래 '현재 시각'을 기준으로 절대 시각으로 변환하세요.
+                6. 모든 시각은 한국 시간(KST) 기준입니다. 상대 시간 표현("내일", "다음주" 등)은 아래 '현재 시각'(KST)을 기준으로 변환하세요.
                 7. dosage 는 사용자가 말한 양 그대로 ("5ml", "한 알", "반 스푼" 등). 단위가 없으면 null.
                 8. medicineName / hospitalName 은 고유명사 그대로. 일반 표현("그 약")은 null.
                 9. 이전 알람 초안이 있고 사용자가 그 슬롯을 채우는 발화면, 채워진 슬롯만 출력하고 나머지는 null.

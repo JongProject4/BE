@@ -1,5 +1,7 @@
 package com.aikids.care.domain.chat.alarm;
 
+import com.aikids.care.domain.healthlog.entity.HealthLog.LogType;
+import com.aikids.care.domain.healthlog.service.HealthLogService;
 import com.aikids.care.domain.hospitalalarm.service.HospitalAlarmService;
 import com.aikids.care.domain.medicationalarm.service.MedicationAlarmService;
 import org.junit.jupiter.api.BeforeEach;
@@ -7,6 +9,8 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -29,6 +33,7 @@ class AlarmFlowHandlerTest {
     private PendingAlarmDraftStore draftStore;
     private MedicationAlarmService medicationAlarmService;
     private HospitalAlarmService hospitalAlarmService;
+    private HealthLogService healthLogService;
     private AlarmFlowHandler handler;
 
     @BeforeEach
@@ -37,7 +42,8 @@ class AlarmFlowHandlerTest {
         draftStore = mock(PendingAlarmDraftStore.class);
         medicationAlarmService = mock(MedicationAlarmService.class);
         hospitalAlarmService = mock(HospitalAlarmService.class);
-        handler = new AlarmFlowHandler(extractor, draftStore, medicationAlarmService, hospitalAlarmService);
+        healthLogService = mock(HealthLogService.class);
+        handler = new AlarmFlowHandler(extractor, draftStore, medicationAlarmService, hospitalAlarmService, healthLogService);
     }
 
     @Test
@@ -91,7 +97,7 @@ class AlarmFlowHandlerTest {
     }
 
     @Test
-    @DisplayName("진행 중 초안 + CONFIRM + 슬롯 완비 → 실제 등록 + clear + 완료 응답")
+    @DisplayName("진행 중 초안 + CONFIRM + 슬롯 완비 → 실제 등록 + health_log 동기 + clear + 완료 응답")
     void pendingConfirmCompleteRegisters() {
         AlarmDraft pending = AlarmDraft.builder()
                 .intent(AlarmIntent.MEDICATION)
@@ -106,18 +112,22 @@ class AlarmFlowHandlerTest {
         assertThat(reply).isPresent();
         assertThat(reply.get()).contains("타이레놀", "5ml", "24");
         verify(medicationAlarmService).register(CHILD_ID, USER_ID, "타이레놀", "5ml", 24);
+        verify(healthLogService).register(eq(CHILD_ID), eq(USER_ID), eq(LogType.MEDICATION),
+                eq("타이레놀"), any(LocalDateTime.class));
         verify(draftStore).clear(CHAT_ID);
         verify(extractor, never()).extract(anyString(), any());
     }
 
     @Test
-    @DisplayName("진행 중 내원 초안 + CONFIRM → HospitalAlarmService.register 호출")
+    @DisplayName("진행 중 내원 초안 + CONFIRM → HospitalAlarmService + health_log 둘 다 KST→UTC 변환된 visitDate로 호출")
     void pendingConfirmHospitalRegisters() {
-        LocalDateTime visit = LocalDateTime.of(2026, 6, 25, 14, 0);
+        LocalDateTime visitKst = LocalDateTime.of(2026, 6, 25, 14, 0);
+        LocalDateTime expectedUtc = visitKst.atZone(ZoneId.of("Asia/Seoul"))
+                .withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
         AlarmDraft pending = AlarmDraft.builder()
                 .intent(AlarmIntent.HOSPITAL)
                 .hospitalName("서울아이병원")
-                .visitDate(visit)
+                .visitDate(visitKst)
                 .memo("정기검진")
                 .build();
         when(draftStore.load(CHAT_ID)).thenReturn(pending);
@@ -126,7 +136,8 @@ class AlarmFlowHandlerTest {
 
         assertThat(reply).isPresent();
         assertThat(reply.get()).contains("서울아이병원");
-        verify(hospitalAlarmService).register(CHILD_ID, USER_ID, "서울아이병원", visit, "정기검진");
+        verify(hospitalAlarmService).register(CHILD_ID, USER_ID, "서울아이병원", expectedUtc, "정기검진");
+        verify(healthLogService).register(CHILD_ID, USER_ID, LogType.HOSPITAL, "서울아이병원", expectedUtc);
         verify(draftStore).clear(CHAT_ID);
     }
 
@@ -144,6 +155,7 @@ class AlarmFlowHandlerTest {
         assertThat(reply).isPresent();
         assertThat(reply.get()).contains("복용량");
         verify(medicationAlarmService, never()).register(anyLong(), anyLong(), anyString(), anyString(), any());
+        verify(healthLogService, never()).register(anyLong(), anyLong(), any(), anyString(), any());
         verify(draftStore, never()).clear(anyLong());
     }
 
