@@ -7,8 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -21,7 +19,6 @@ import java.util.stream.Collectors;
 public class AlarmFlowHandler {
 
     private static final DateTimeFormatter VISIT_DATE_FORMAT = DateTimeFormatter.ofPattern("M월 d일 HH:mm");
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private final AlarmIntentExtractor extractor;
     private final PendingAlarmDraftStore draftStore;
@@ -79,19 +76,11 @@ public class AlarmFlowHandler {
                     draft.getMedicineName(), draft.getDosage(), draft.getIntervalHour());
             log.info("[AlarmFlow] medication registered childId={}, name={}", childId, draft.getMedicineName());
         } else {
-            // visitDate는 LLM이 KST wall-clock으로 추출. JDBC가 INSERT 시 +9 더하는 버그 보상 위해
-            // 저장 직전 UTC wall-clock으로 변환 → DB에 KST 의도값이 그대로 들어가도록 함.
-            LocalDateTime visitForStorage = toStorage(draft.getVisitDate().truncatedTo(ChronoUnit.SECONDS));
+            LocalDateTime visitDate = draft.getVisitDate().truncatedTo(ChronoUnit.SECONDS);
             hospitalAlarmService.register(childId, userId,
-                    draft.getHospitalName(), visitForStorage, draft.getMemo());
+                    draft.getHospitalName(), visitDate, draft.getMemo());
             log.info("[AlarmFlow] hospital registered childId={}, name={}", childId, draft.getHospitalName());
         }
-    }
-
-    // KST wall-clock LocalDateTime → UTC wall-clock LocalDateTime.
-    // JDBC URL의 serverTimezone=Asia/Seoul + JVM UTC 조합이 INSERT 시 +9h를 더하는 동작을 보상.
-    private LocalDateTime toStorage(LocalDateTime kstLdt) {
-        return kstLdt.atZone(KST).withZoneSameInstant(ZoneOffset.UTC).toLocalDateTime();
     }
 
     private String confirmPrompt(AlarmDraft draft) {

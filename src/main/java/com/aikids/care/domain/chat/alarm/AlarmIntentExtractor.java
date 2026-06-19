@@ -7,15 +7,12 @@ import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class AlarmIntentExtractor {
-
-    private static final ZoneId KST = ZoneId.of("Asia/Seoul");
 
     private static final List<String> ALARM_KEYWORDS = List.of(
             "알림", "알려줘", "알려주세요", "알려달라",
@@ -44,7 +41,7 @@ public class AlarmIntentExtractor {
             return AlarmDraft.none();
         }
 
-        String prompt = AlarmIntentPrompts.extract(userMessage, LocalDateTime.now(KST), previousDraft);
+        String prompt = AlarmIntentPrompts.extract(userMessage, LocalDateTime.now(), previousDraft);
         String response;
         try {
             response = chatModel.call(prompt);
