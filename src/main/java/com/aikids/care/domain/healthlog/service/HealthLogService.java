@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @Service
@@ -49,6 +50,21 @@ public class HealthLogService {
                 .logType(request.getLogType())
                 .content(request.getContent())
                 .eventDate(request.getEventDate())
+                .build();
+
+        return HealthLogResponse.from(healthLogRepository.save(healthLog));
+    }
+
+    // AI 채팅에서 등록된 알람을 캘린더(health_log)에 동기 기록 (DTO 우회용 내부 진입점)
+    @Transactional
+    public HealthLogResponse register(Long childId, Long userId, LogType logType, String content, LocalDateTime eventDate) {
+        Child child = validateChild(childId, userId);
+
+        HealthLog healthLog = HealthLog.builder()
+                .child(child)
+                .logType(logType)
+                .content(content)
+                .eventDate(eventDate)
                 .build();
 
         return HealthLogResponse.from(healthLogRepository.save(healthLog));

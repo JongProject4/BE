@@ -12,12 +12,13 @@ public final class AlarmConfirmationParser {
 
     // 한 단어처럼 등장하는 긍정/부정 표현. \W 경계로 부분 문자열 오인식 방지 (예: "아냐" 안에 "아"만 매칭 금지).
     private static final Pattern CONFIRM = Pattern.compile(
-            "(^|[\\s.,!?])(네|예|응|어|맞아|좋아|좋습니다|등록해줘|등록할래|확인|오케이|ok)([\\s.,!?]|$)",
+            "(^|[\\s.,!?])(네|예|예예|응|어|그래|그래요|그럼|그러죠|맞아|맞습니다|좋아|좋습니다|등록|등록해|등록해줘|등록해주세요|등록할래|확인|오케이|오키|ㅇㅋ|ㅇㅇ|yes|ok)([\\s.,!?]|$)",
             Pattern.CASE_INSENSITIVE
     );
 
     private static final Pattern CANCEL = Pattern.compile(
-            "(^|[\\s.,!?])(아니|아뇨|아니요|취소|싫어|아냐|관둬|그만|됐어|괜찮아)([\\s.,!?]|$)"
+            "(^|[\\s.,!?])(아니|아뇨|아니요|취소|싫어|아냐|관둬|그만|됐어|괜찮아|no)([\\s.,!?]|$)",
+            Pattern.CASE_INSENSITIVE
     );
 
     private AlarmConfirmationParser() {
