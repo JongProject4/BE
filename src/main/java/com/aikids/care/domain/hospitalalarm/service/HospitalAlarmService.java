@@ -43,6 +43,7 @@ public class HospitalAlarmService {
                 .visitDate(request.getVisitDate())
                 .memo(request.getMemo())
                 .build();
+        hospitalAlarm.markPastStagesAsNotified(LocalDateTime.now());
 
         return HospitalAlarmResponse.from(hospitalAlarmRepository.save(hospitalAlarm));
     }
@@ -58,6 +59,7 @@ public class HospitalAlarmService {
                 .visitDate(visitDate)
                 .memo(memo)
                 .build();
+        hospitalAlarm.markPastStagesAsNotified(LocalDateTime.now());
 
         return HospitalAlarmResponse.from(hospitalAlarmRepository.save(hospitalAlarm));
     }
@@ -72,6 +74,11 @@ public class HospitalAlarmService {
 
         hospitalAlarm.update(request.getHospitalName(), request.getVisitDate(),
                 request.getMemo(), request.getIsActive());
+        // 엔티티 update에서 visitDate 변경 시 notifiedStages를 0으로 리셋함.
+        // 그 위에 지난 단계를 다시 마킹해야 새 visitDate 기준 정확한 발송이 가능.
+        if (request.getVisitDate() != null) {
+            hospitalAlarm.markPastStagesAsNotified(LocalDateTime.now());
+        }
 
         return HospitalAlarmResponse.from(hospitalAlarm);
     }
