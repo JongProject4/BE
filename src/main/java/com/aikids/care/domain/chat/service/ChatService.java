@@ -266,8 +266,10 @@ public class ChatService {
         Chat chat = chatRepository.findById(chatId)
                 .orElseThrow(() -> new CustomException(ErrorCode.CHAT_NOT_FOUND));
         chatRepository.delete(chat);
+        log.info("Chat deleted: chatId={}, socialId={}", chatId, socialId);
     }
 
+    @Transactional(readOnly = true)
     public List<ChatDetailResponse> getChatHistory(Long chatId, String socialId, SocialType socialType) {
         validateChatOwnership(chatId, socialId, socialType);
         List<ChatDetail> details = chatDetailRepository.findByChatIdOrderByCreatedAtAsc(chatId);
@@ -282,6 +284,7 @@ public class ChatService {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
     public List<Long> getChatRoomList(String socialId, SocialType socialType, Long childId) {
         User user = userRepository.findBySocialIdAndSocialType(socialId, socialType)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
