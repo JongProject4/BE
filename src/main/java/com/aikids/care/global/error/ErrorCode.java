@@ -35,7 +35,10 @@ public enum ErrorCode {
     HOSPITAL_ALARM_NOT_FOUND(HttpStatus.NOT_FOUND, "해당 내원 알림을 찾을 수 없습니다."),
 
     // AI
-    AI_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 서비스가 일시적으로 사용 불가능합니다. 잠시 후 다시 시도해주세요.");
+    AI_SERVICE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "AI 서비스가 일시적으로 사용 불가능합니다. 잠시 후 다시 시도해주세요."),
+
+    // Voice
+    VOICE_BUSY(HttpStatus.TOO_MANY_REQUESTS, "음성 처리 중인 사용자가 많습니다. 잠시 후 다시 시도해주세요.");
 
     private final HttpStatus httpStatus;
     private final String message;

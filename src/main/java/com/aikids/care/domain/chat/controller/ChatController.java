@@ -2,10 +2,13 @@ package com.aikids.care.domain.chat.controller;
 
 import com.aikids.care.domain.chat.dto.*;
 import com.aikids.care.domain.chat.service.ChatService;
+import com.aikids.care.domain.chat.service.VoiceConcurrencyLimiter;
+import com.aikids.care.global.error.ErrorCode;
 import com.aikids.care.global.security.OAuth2Utils;
 import com.aikids.care.global.security.OAuth2Utils.AuthInfo;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.codec.ServerSentEvent;
@@ -33,6 +36,7 @@ import java.util.Map;
 public class ChatController {
 
     private final ChatService chatService;
+    private final VoiceConcurrencyLimiter voiceLimiter;
 
     @PostMapping
     public ResponseEntity<ChatCreateResponse> createChat(
@@ -59,6 +63,18 @@ public class ChatController {
             @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long chatId,
             @RequestParam("file") MultipartFile file) {
+        // 동시 음성 처리 한도 초과 시 즉시 안내 메시지 후 종료 (서버 보호용)
+        if (!voiceLimiter.tryAcquire()) {
+            log.warn("[VoiceStream] limiter rejected chatId={}, availableSlots={}", chatId, voiceLimiter.availableSlots());
+            return Flux.just(
+                    ServerSentEvent.<ChatStreamResponse>builder()
+                            .data(ChatStreamResponse.ofChunk(ErrorCode.VOICE_BUSY.getMessage(), ""))
+                            .build(),
+                    ServerSentEvent.<ChatStreamResponse>builder()
+                            .data(ChatStreamResponse.ofFinal())
+                            .build()
+            );
+        }
         AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
         return chatService.handleVoiceChatStream(chatId, auth.socialId(), auth.socialType(), file)
                 .map(chunk -> ServerSentEvent.<ChatStreamResponse>builder()
@@ -72,7 +88,8 @@ public class ChatController {
                         ServerSentEvent.<ChatStreamResponse>builder()
                                 .data(ChatStreamResponse.ofFinal())
                                 .build()
-                ));
+                ))
+                .doFinally(signal -> voiceLimiter.release());
     }
 
     // 동기 음성 상담 (레거시, 필요 시 사용)
@@ -81,6 +98,11 @@ public class ChatController {
             @AuthenticationPrincipal OAuth2User oauth2User,
             @PathVariable Long chatId,
             @RequestParam("file") MultipartFile file) {
+        if (!voiceLimiter.tryAcquire()) {
+            log.warn("[VoiceSync] limiter rejected chatId={}, availableSlots={}", chatId, voiceLimiter.availableSlots());
+            return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of("error", ErrorCode.VOICE_BUSY.getMessage()));
+        }
         AuthInfo auth = OAuth2Utils.extractAuthInfo(oauth2User);
         try {
             VoiceChatResponse response = chatService.sendVoiceMessage(chatId, auth.socialId(), auth.socialType(), file);
@@ -89,6 +111,8 @@ public class ChatController {
             log.error("[VoiceSync] chatId={} failed: {}", chatId, e.getMessage(), e);
             return ResponseEntity.internalServerError()
                     .body(Map.of("error", "음성 상담 처리에 실패했습니다."));
+        } finally {
+            voiceLimiter.release();
         }
     }
 
