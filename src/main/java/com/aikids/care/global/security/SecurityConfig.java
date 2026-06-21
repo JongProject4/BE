@@ -6,6 +6,7 @@ import com.aikids.care.global.security.oauth2.CookieOAuth2AuthorizationRequestRe
 import com.aikids.care.global.security.oauth2.OAuth2AuthenticationSuccessHandler;
 import lombok.extern.slf4j.Slf4j;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -29,16 +30,18 @@ public class SecurityConfig {
 	private final OAuth2AuthenticationSuccessHandler oAuth2AuthenticationSuccessHandler;
 	private final CookieOAuth2AuthorizationRequestRepository cookieOAuth2AuthorizationRequestRepository;
 
+	// CORS 허용 origin 목록. application.yml의 app.cors.allowed-origins로 override 가능.
+	// 콤마로 구분된 URL 목록을 받는다. yml에 키가 없으면 아래 default 사용.
+	@Value("${app.cors.allowed-origins:https://pediatric-ai-beige.vercel.app,https://fe-puce-delta.vercel.app,http://localhost:3000}")
+	private String[] allowedOrigins;
+
 	@Bean
 	public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+		log.info("CORS allowed origins: {}", List.of(allowedOrigins));
 		http
 				.cors(cors -> cors.configurationSource(request -> {
 					var config = new org.springframework.web.cors.CorsConfiguration();
-					config.setAllowedOrigins(List.of(
-							"https://pediatric-ai-beige.vercel.app",
-							"https://fe-puce-delta.vercel.app",
-							"http://localhost:3000"
-					));
+					config.setAllowedOrigins(List.of(allowedOrigins));
 					config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
 					config.setAllowedHeaders(List.of("*"));
 					config.setAllowCredentials(true);

@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
@@ -22,6 +23,7 @@ import org.springframework.web.util.UriComponentsBuilder;
  * OAuth2(구글 등) 로그인 성공 후 서버 발급 JWT를 쿼리 파라미터로 붙여 프론트엔드로 리다이렉트한다.
  * 대상 URL은 {@code app.oauth2.frontend-redirect-uri} (application.yml, 환경변수로 덮어쓰기)에서만 읽는다.
  */
+@Slf4j
 @Component
 @RequiredArgsConstructor
 public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccessHandler {
@@ -35,6 +37,8 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 	public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication)
 			throws IOException, ServletException {
 		if (!(authentication instanceof OAuth2AuthenticationToken oauth2Authentication)) {
+			log.error("OAuth2 success handler received unexpected authentication type: {}",
+					authentication.getClass().getName());
 			response.sendError(HttpStatus.INTERNAL_SERVER_ERROR.value(), "Unexpected authentication type");
 			return;
 		}
@@ -47,6 +51,8 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 		Object userIdObj = attrs.get("userId");
 		Long userId = userIdObj instanceof Number n ? n.longValue() : null;
 		if (!StringUtils.hasText(socialId) || !StringUtils.hasText(socialTypeStr) || userId == null) {
+			log.error("OAuth2 attributes missing: socialId={}, socialType={}, userId={}",
+					socialId, socialTypeStr, userId);
 			response.sendError(HttpStatus.INTERNAL_SERVER_ERROR.value(), "OAuth2 attributes are missing social info.");
 			return;
 		}
@@ -55,6 +61,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 
 		String redirectBase = oauth2FrontendProperties.frontendRedirectUri();
 		if (!StringUtils.hasText(redirectBase)) {
+			log.error("app.oauth2.frontend-redirect-uri is not configured; cannot complete OAuth login");
 			response.sendError(HttpStatus.INTERNAL_SERVER_ERROR.value(), "app.oauth2.frontend-redirect-uri is not configured");
 			return;
 		}
@@ -64,6 +71,7 @@ public class OAuth2AuthenticationSuccessHandler implements AuthenticationSuccess
 				.build()
 				.toUriString();
 
+		log.info("OAuth2 login success: userId={}, socialType={}, redirecting to frontend", userId, socialTypeStr);
 		redirectStrategy.sendRedirect(request, response, targetUrl);
 	}
 }

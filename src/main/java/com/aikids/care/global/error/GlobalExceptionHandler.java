@@ -13,6 +13,10 @@ public class GlobalExceptionHandler {
     // @ RestControllerAdvice <-- 이게 예외 catch
     @ExceptionHandler(CustomException.class)
     public ResponseEntity<String> handleCustomException(CustomException e) {
+        log.warn("CustomException: code={}, status={}, message={}",
+                e.getErrorCode().name(),
+                e.getErrorCode().getHttpStatus(),
+                e.getErrorCode().getMessage());
         return ResponseEntity
                 .status(e.getErrorCode().getHttpStatus())
                 .body(e.getErrorCode().getMessage());
