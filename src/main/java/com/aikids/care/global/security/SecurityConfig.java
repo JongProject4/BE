@@ -36,6 +36,7 @@ public class SecurityConfig {
 					var config = new org.springframework.web.cors.CorsConfiguration();
 					config.setAllowedOrigins(List.of(
 							"https://pediatric-ai-beige.vercel.app",
+							"https://fe-puce-delta.vercel.app",
 							"http://localhost:3000"
 					));
 					config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
